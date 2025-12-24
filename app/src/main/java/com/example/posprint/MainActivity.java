@@ -13,11 +13,21 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebChromeClient;
+import android.webkit.JsResult;
+import android.webkit.JsPromptResult;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceResponse;
+import android.webkit.SslErrorHandler;
 import android.os.Message;
+import android.webkit.ConsoleMessage;
+import android.net.http.SslError;
 import java.net.URLEncoder;
 import android.view.View;
 import java.util.HashMap;
 import java.util.Map;
+import androidx.appcompat.app.AlertDialog;
+import android.webkit.CookieManager;
+import com.google.android.material.snackbar.Snackbar;
 
 import com.example.posprint.notification.NotificationHelper;
 
@@ -57,19 +67,80 @@ public class MainActivity extends AppCompatActivity {
         urlInput = findViewById(R.id.urlInput);
         goButton = findViewById(R.id.goButton);
         urlBar = findViewById(R.id.urlBar);
+        WebView.setWebContentsDebuggingEnabled(true);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setAllowFileAccess(true);
         settings.setSupportZoom(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
+        CookieManager cm = CookieManager.getInstance();
+        cm.setAcceptCookie(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            cm.setAcceptThirdPartyCookies(webView, true);
+        }
         String baseUA = settings.getUserAgentString();
         settings.setUserAgentString(baseUA + " Android");
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request != null && request.isForMainFrame()) {
+                    urlBar.setVisibility(View.VISIBLE);
+                    urlBar.bringToFront();
+                    String failing = request.getUrl() != null ? request.getUrl().toString() : "";
+                    urlInput.setText(failing);
+                    urlInput.requestFocus();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(urlInput, 0);
+                    Snackbar.make(urlBar, "Unable to load. Please re-enter URL.", Snackbar.LENGTH_LONG).show();
+                }
+            }
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                urlBar.setVisibility(View.VISIBLE);
+                urlBar.bringToFront();
+                urlInput.setText(failingUrl != null ? failingUrl : "");
+                urlInput.requestFocus();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(urlInput, 0);
+                Snackbar.make(urlBar, "Unable to load. Please re-enter URL.", Snackbar.LENGTH_LONG).show();
+            }
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+                if (request != null && request.isForMainFrame()) {
+                    urlBar.setVisibility(View.VISIBLE);
+                    urlBar.bringToFront();
+                    String failing = request.getUrl() != null ? request.getUrl().toString() : "";
+                    urlInput.setText(failing);
+                    urlInput.requestFocus();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(urlInput, 0);
+                    Snackbar.make(urlBar, "Page error. Please re-enter URL.", Snackbar.LENGTH_LONG).show();
+                }
+            }
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.cancel();
+                urlBar.setVisibility(View.VISIBLE);
+                urlBar.bringToFront();
+                urlInput.requestFocus();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(urlInput, 0);
+                Snackbar.make(urlBar, "SSL error. Please check and re-enter URL.", Snackbar.LENGTH_LONG).show();
+            }
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                String notifPolyfillEarly =
+                        "(function(){try{if(typeof window.Notification==='undefined'){var N=function(t,o){};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}}catch(e){}})();";
+                view.evaluateJavascript(notifPolyfillEarly, null);
+            }
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -79,6 +150,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 return handleDeepLinkUri(Uri.parse(url));
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                String notifPolyfill =
+                        "(function(){try{if(typeof window.Notification==='undefined'){var N=function(t,o){};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}}catch(e){}})();";
+                view.evaluateJavascript(notifPolyfill, null);
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -92,16 +171,74 @@ public class MainActivity extends AppCompatActivity {
                 newWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView vw, WebResourceRequest req) {
-                        return handleDeepLinkUri(req.getUrl());
+                        Uri u = req.getUrl();
+                        if (handleDeepLinkUri(u)) return true;
+                        webView.loadUrl(u.toString());
+                        return true;
                     }
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView vw, String u) {
-                        return handleDeepLinkUri(Uri.parse(u));
+                        Uri uri = Uri.parse(u);
+                        if (handleDeepLinkUri(uri)) return true;
+                        webView.loadUrl(u);
+                        return true;
                     }
                 });
                 WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
                 transport.setWebView(newWebView);
                 resultMsg.sendToTarget();
+                return true;
+            }
+
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                AlertDialog.Builder b = new AlertDialog.Builder(MainActivity.this);
+                b.setMessage(message)
+                        .setPositiveButton("OK", (d, w) -> result.confirm())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                AlertDialog.Builder b = new AlertDialog.Builder(MainActivity.this);
+                b.setMessage(message)
+                        .setPositiveButton("OK", (d, w) -> result.confirm())
+                        .setNegativeButton("Cancel", (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
+                android.widget.EditText input = new android.widget.EditText(MainActivity.this);
+                input.setText(defaultValue);
+                AlertDialog.Builder b = new AlertDialog.Builder(MainActivity.this);
+                b.setMessage(message)
+                        .setView(input)
+                        .setPositiveButton("OK", (d, w) -> result.confirm(String.valueOf(input.getText())))
+                        .setNegativeButton("Cancel", (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsBeforeUnload(WebView view, String url, String message, JsResult result) {
+                AlertDialog.Builder b = new AlertDialog.Builder(MainActivity.this);
+                b.setMessage(message)
+                        .setPositiveButton("Leave", (d, w) -> result.confirm())
+                        .setNegativeButton("Stay", (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                Log.d("JSConsole", consoleMessage.message() + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber());
                 return true;
             }
         });
@@ -118,6 +255,26 @@ public class MainActivity extends AppCompatActivity {
             webView.loadUrl(saved, headers);
         }
 
+        urlInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
+                String u = String.valueOf(urlInput.getText()).trim();
+                if (u.isEmpty()) return true;
+                if (!u.startsWith("http://") && !u.startsWith("https://")) {
+                    u = "https://" + u;
+                }
+                getSharedPreferences("web_prefs", MODE_PRIVATE).edit().putString("web_url", u).apply();
+                Map<String,String> headers = new HashMap<>();
+                headers.put("User-Agent", webView.getSettings().getUserAgentString());
+                webView.loadUrl(u, headers);
+                urlBar.setVisibility(View.GONE);
+                urlInput.clearFocus();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(urlInput.getWindowToken(), 0);
+                return true;
+            }
+            return false;
+        });
+
         goButton.setOnClickListener(v -> {
             String u = String.valueOf(urlInput.getText()).trim();
             if (u.isEmpty()) return;
@@ -129,6 +286,9 @@ public class MainActivity extends AppCompatActivity {
             headers.put("User-Agent", webView.getSettings().getUserAgentString());
             webView.loadUrl(u, headers);
             urlBar.setVisibility(View.GONE);
+            urlInput.clearFocus();
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(urlInput.getWindowToken(), 0);
         });
     }
 
@@ -160,11 +320,15 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        if (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")) {
+        if (scheme.equalsIgnoreCase("app")) {
             Intent svc = new Intent(this, BackgroundPrintService.class);
             svc.setData(uri);
             startService(svc);
             return true;
+        }
+        // Allow javascript: and other non-http schemes to proceed normally
+        if (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")) {
+            return false;
         }
 
         String url = uri.toString();

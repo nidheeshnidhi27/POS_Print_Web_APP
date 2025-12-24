@@ -42,8 +42,8 @@ public class PrintConnection_PAY {
 
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 4000);
-                socket.setSoTimeout(200);
+                socket.connect(new InetSocketAddress(ip, port), 5000);
+                socket.setSoTimeout(600);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -51,10 +51,14 @@ public class PrintConnection_PAY {
                 // 1) Drain old bytes
                 drainWithTimeout(input);
 
-                // 2) Send status request (DLE EOT 4)
-                byte[] statusCmd = new byte[]{0x10, 0x04, 0x04};
-                output.write(statusCmd);
-                output.flush();
+                boolean ready = PrinterStatusHelper.waitUntilReady(ip, port, 8000);
+                if (!ready) {
+                    message = "Printer not ready (PAY)";
+                    showNotification(message);
+                    post(callback, false, message);
+                    safeClose(socket);
+                    return;
+                }
 
                 // 3) Read response
                 byte[] statusBytes = readUntilTimeout(input);
@@ -74,7 +78,7 @@ public class PrintConnection_PAY {
 
                 boolean paperOut = ((first >> 3) & 1) == 1;
                 boolean coverOpen = ((first >> 5) & 1) == 1;
-                boolean printingBusy = (first == 1); // YOUR DEVICE RETURNS 1 = PRINTING
+                boolean printingBusy = (first == 1);
 
                 if (paperOut) {
                     message = "Paper Out (PAY)";

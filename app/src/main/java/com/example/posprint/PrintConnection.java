@@ -50,57 +50,69 @@ public class PrintConnection {
             try {
                 socket = new Socket();
                 socket.connect(new InetSocketAddress(ip, port), 4000);
-                socket.setSoTimeout(200); // short read timeout for status drain
+                socket.setSoTimeout(200);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
 
-                // 1) Drain any leftover bytes before asking status
                 drainWithTimeout(input);
-
-                // 2) SEND NON-PRINTING STATUS CMD: DLE EOT 4 (0x10 0x04 0x04)
-                byte[] statusCmd = new byte[]{0x10, 0x04, 0x04};
-                output.write(statusCmd);
+                byte[] statusBytes;
+                // Try DLE EOT 2 first (matches your backend)
+                output.write(new byte[]{0x10, 0x04, 0x02});
                 output.flush();
-
-                // 3) Read response into a buffer until timeout (safe drain + capture)
-                byte[] statusBytes = readUntilTimeout(input);
-
-                // interpret status if we got anything
+                statusBytes = readUntilTimeout(input);
                 if (statusBytes == null || statusBytes.length == 0) {
-                    // consider offline or no response
-                    message = "Printer did not respond to status check";
-                    showNotification(message);
-                    success = false;
-                    safeClose(socket);
-                    postResult(callback, success, message);
-                    return;
+                    // Fallback: DLE EOT 4
+                    output.write(new byte[]{0x10, 0x04, 0x04});
+                    output.flush();
+                    statusBytes = readUntilTimeout(input);
                 }
 
-                // Example: many printers send one or more bytes; use first byte for basic checks
-                int first = statusBytes[0] & 0xFF;
-                Log.d(TAG, "Status bytes (hex): " + bytesToHex(statusBytes));
-                Log.d(TAG, "Status first byte: " + first);
-
-                // Basic interpretation (may vary across printer models)
-                boolean paperOut = ((first >> 3) & 1) == 1;
-                boolean coverOpen = ((first >> 5) & 1) == 1; // some printers differ on bit positions
-
-                if (paperOut) {
-                    message = "Printer out of paper";
-                    showNotification(message);
-                    success = false;
-                    safeClose(socket);
-                    postResult(callback, success, message);
-                    return;
-                }
-                if (coverOpen) {
-                    message = "Printer cover open";
-                    showNotification(message);
-                    success = false;
-                    safeClose(socket);
-                    postResult(callback, success, message);
-                    return;
+                if (statusBytes == null || statusBytes.length == 0) {
+                    // No status response — proceed cautiously after drain
+                    Log.w(TAG, "No status response; proceeding to print after drain");
+                } else {
+                    int first = statusBytes[0] & 0xFF;
+                    Log.d(TAG, "Status bytes (hex): " + bytesToHex(statusBytes));
+                    Log.d(TAG, "Status first byte: " + first);
+                    boolean offline = ((first >> 0) & 1) == 1;
+                    boolean paperEnd = ((first >> 3) & 1) == 1;
+                    boolean busy = ((first >> 5) & 1) == 1;
+                    if (offline) {
+                        message = "Printer is offline";
+                        showNotification(message);
+                        success = false;
+                        safeClose(socket);
+                        postResult(callback, success, message);
+                        return;
+                    }
+                    if (paperEnd) {
+                        message = "Paper out";
+                        showNotification(message);
+                        success = false;
+                        safeClose(socket);
+                        postResult(callback, success, message);
+                        return;
+                    }
+                    if (busy) {
+                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        drainWithTimeout(input);
+                        output.write(new byte[]{0x10, 0x04, 0x02});
+                        output.flush();
+                        byte[] again = readUntilTimeout(input);
+                        if (again != null && again.length > 0) {
+                            int f2 = again[0] & 0xFF;
+                            boolean stillBusy = ((f2 >> 5) & 1) == 1;
+                            if (stillBusy) {
+                                message = "Printer busy";
+                                showNotification(message);
+                                success = false;
+                                safeClose(socket);
+                                postResult(callback, success, message);
+                                return;
+                            }
+                        }
+                    }
                 }
 
                 // 4) Very important: drain again to ensure **no status bytes** remain before sending print data
