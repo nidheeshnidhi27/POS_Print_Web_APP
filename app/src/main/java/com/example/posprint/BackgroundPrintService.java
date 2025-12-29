@@ -97,23 +97,23 @@ public class BackgroundPrintService extends IntentService {
 
                             String type = response.getString("print_type");
                             Log.d("PrintService", "Response OK, type=" + type);
-                            if ("kot".equals(type)) {
+                            if ("kot".equalsIgnoreCase(type)) {
 
                                 JSONObject details = response.getJSONObject("details");
                                 new KOTHandler(getApplicationContext(), response, details).handleKOT();
 
-                            }else if ("reprint_kot".equals(type)) {
+                            }else if ("reprint_kot".equalsIgnoreCase(type)) {
 
                                 JSONObject details = response.getJSONObject("details");
                                 new KOTHandler(getApplicationContext(), response, details).handleKOT();
-                            }else if ("online_kot".equals(type)) {
+                            }else if ("online_kot".equalsIgnoreCase(type)) {
                                 JSONObject details = response.getJSONObject("details");
                                 new KOTHandlerOnline(getApplicationContext(), response, details).handleKOT();
                             }
-                            else if ("online_booking".equals(type)) {
+                            else if ("online_booking".equalsIgnoreCase(type)) {
                                 new BookingPrintHandler(getApplicationContext(), response).handleBookingPrint();
                             }
-                            else if ("online_invoice".equals(type)) {
+                            else if ("online_invoice".equalsIgnoreCase(type)) {
                                 Object detailsObj = response.get("details");  // ✅ Can be JSONObject or JSONArray
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONObject payData = response.getJSONObject("data");
@@ -177,7 +177,7 @@ public class BackgroundPrintService extends IntentService {
                                 }
                             }
 
-                            else if ("invoice".equals(type)) {
+                            else if ("invoice".equalsIgnoreCase(type)) {
                                 JSONObject details = response.getJSONObject("details");
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONObject payData = response.getJSONObject("data");
@@ -266,7 +266,7 @@ public class BackgroundPrintService extends IntentService {
 
                             }
 
-                            else if ("equal_split_payable_invoice".equals(type)) {
+                            else if ("equal_split_payable_invoice".equalsIgnoreCase(type)) {
                                 JSONObject details = response.getJSONObject("details");
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONObject payData = response.getJSONObject("data");
@@ -313,7 +313,7 @@ public class BackgroundPrintService extends IntentService {
 
                             }
 
-                            else if ("Invoice_split_item".equals(type)) {
+                            else if ("Invoice_split_item".equalsIgnoreCase(type)) {
                                 JSONObject valueDetails = response.getJSONObject("value_details");
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONArray outlets = response.getJSONArray("outlets");
@@ -376,7 +376,7 @@ public class BackgroundPrintService extends IntentService {
                                 }
                             }
 
-                            else if ("Before_Invoice".equals(type)) {
+                            else if ("Before_Invoice".equalsIgnoreCase(type)) {
                                 JSONObject details = response.getJSONObject("details");
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONObject payData = response.getJSONObject("data");
@@ -422,7 +422,7 @@ public class BackgroundPrintService extends IntentService {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
                                 }
 
-                            }else if ("petty_cash".equals(type)) {
+                            }else if ("petty_cash".equalsIgnoreCase(type)) {
 
                                 JSONObject details = new JSONObject(); // ✅ Fix: dummy empty object
 
@@ -469,7 +469,7 @@ public class BackgroundPrintService extends IntentService {
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
                                 }
-                            }else if ("petty_cash_invoice".equals(type)) {
+                            }else if ("petty_cash_invoice".equalsIgnoreCase(type)) {
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONArray outlets = response.getJSONArray("outlets");
                                 JSONArray printerSetupArray = response.getJSONArray("printersetup");
@@ -505,7 +505,7 @@ public class BackgroundPrintService extends IntentService {
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for print_today_petty_cash.");
                                 }
-                            }else if ("mainsaway".equals(type)) {
+                            }else if ("mainsaway".equalsIgnoreCase(type)) {
                                 JSONObject payData = response.getJSONObject("data");
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONArray printerSetupArray = response.getJSONArray("printersetup");
@@ -533,7 +533,7 @@ public class BackgroundPrintService extends IntentService {
                             }
 
 // Reports
-                            else if("daily_summary_report".equals(type)){
+                            else if("daily_summary_report".equalsIgnoreCase(type)){
 
                                 String printerIP = "";
                                 int printerPort = 9100;
@@ -571,7 +571,7 @@ public class BackgroundPrintService extends IntentService {
 
                             }
 
-                            else if("online_report".equals(type) || "offline_report".equals(type) || "booking_report".equals(type)) {
+                            else if("online_report".equalsIgnoreCase(type) || "offline_report".equalsIgnoreCase(type) || "booking_report".equalsIgnoreCase(type)) {
 
                                 String printerIP = "";
                                 int printerPort = 9100;

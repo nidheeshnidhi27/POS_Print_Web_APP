@@ -51,55 +51,31 @@ public class PrintConnection_PAY {
                 // 1) Drain old bytes
                 drainWithTimeout(input);
 
-                boolean ready = PrinterStatusHelper.waitUntilReady(ip, port, 8000);
-                if (!ready) {
-                    message = "Printer not ready (PAY)";
+                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                if (!st.online) {
+                    message = "Printer offline (PAY)";
                     showNotification(message);
                     post(callback, false, message);
                     safeClose(socket);
                     return;
                 }
-
-                // 3) Read response
-                byte[] statusBytes = readUntilTimeout(input);
-
-                Log.d(TAG, "Status HEX: " + bytesToHex(statusBytes));
-
-                if (statusBytes == null || statusBytes.length == 0) {
-                    message = "Printer did not respond (PAY)";
+                if (!st.paperOk) {
+                    message = "Paper " + st.paper + " (PAY)";
                     showNotification(message);
                     post(callback, false, message);
                     safeClose(socket);
                     return;
                 }
-
-                int first = statusBytes[0] & 0xFF;
-                Log.d(TAG, "Status First Byte=" + first);
-
-                boolean paperOut = ((first >> 3) & 1) == 1;
-                boolean coverOpen = ((first >> 5) & 1) == 1;
-                boolean printingBusy = (first == 1);
-
-                if (paperOut) {
-                    message = "Paper Out (PAY)";
-                    showNotification(message);
-                    post(callback, false, message);
-                    safeClose(socket);
-                    return;
-                }
-                if (coverOpen) {
-                    message = "Cover Open (PAY)";
-                    showNotification(message);
-                    post(callback, false, message);
-                    safeClose(socket);
-                    return;
-                }
-                if (printingBusy) {
-                    message = "Printer Busy (PAY) — Printing in progress";
-                    showNotification(message);
-                    post(callback, false, message);
-                    safeClose(socket);
-                    return;
+                if (st.busy) {
+                    try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                    st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                    if (st.busy) {
+                        message = "Printer " + st.status + " (PAY)";
+                        showNotification(message);
+                        post(callback, false, message);
+                        safeClose(socket);
+                        return;
+                    }
                 }
 
                 // 4) Drain again → remove leftover status bytes

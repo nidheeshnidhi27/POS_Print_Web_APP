@@ -1,12 +1,15 @@
 package com.example.posprint;
 
 import android.content.Context;
+import android.icu.text.SimpleDateFormat;
 import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Date;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 
 public class ReportHandler {
@@ -92,6 +95,11 @@ public class ReportHandler {
         builder.append(centerText("Thank you for visiting us!",false));
         builder.append("\n----------------------------------------------\n");
 
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+        String printedTime = sdf.format(new Date());
+
+        builder.append("Printed : ").append(printedTime).append("\n\n");
+
         return builder.toString();
     }
 
@@ -130,6 +138,11 @@ public class ReportHandler {
             builder.append("----------------------------------------------\n");
             builder.append("           Thank you for visiting us!\n");
             builder.append("----------------------------------------------\n");
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            builder.append("Printed : ").append(printedTime).append("\n\n");
         }
         return builder.toString();
     }

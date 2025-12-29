@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -17,7 +18,11 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class PayableHandler {
@@ -35,6 +40,10 @@ public class PayableHandler {
     private static final byte[] ESC_FONT_SIZE_RESET = new byte[]{0x1B, 0x21, 0x00};
     private static final byte[] ESC_FONT_SIZE_MEDIUM = new byte[]{0x1B, 0x21, 0x0C};
     private static final byte[] SET_CODE_PAGE_CP437 = new byte[]{0x1B, 0x74, 0x00};
+
+    private static final byte[] ESC_ALIGN_CENTER = new byte[]{0x1B, 0x61, 0x01};
+    private static final byte[] ESC_ALIGN_LEFT   = new byte[]{0x1B, 0x61, 0x00};
+
 
     int lineLength = 40;
     String subtotalLabel = "Subtotal: ";
@@ -109,10 +118,12 @@ public class PayableHandler {
 
                 if (logoBitmap != null) {
                     int printerWidthPx = 384; // for 55mm printer
+                    int printerHieghtPx = 60;
                     Bitmap scaledLogo = Bitmap.createScaledBitmap(
                             logoBitmap,
                             printerWidthPx,
-                            (logoBitmap.getHeight() * printerWidthPx) / logoBitmap.getWidth(),
+                            (printerHieghtPx * printerWidthPx) / logoBitmap.getWidth(),
+//                            printerHieghtPx,
                             true
                     );
 
@@ -128,6 +139,7 @@ public class PayableHandler {
                     output.write("\n".getBytes());
                 } else {
                     output.write(ESC_FONT_SIZE_LARGE);
+                    output.write(ESC_ALIGN_CENTER);
                     output.write(centerText(outletName).getBytes());
                     output.write("\n".getBytes());
                     output.write(ESC_FONT_SIZE_RESET);
@@ -143,12 +155,16 @@ public class PayableHandler {
                 String vat = restSettings.optString("vat", "");
 
                 if (vat != null && !vat.equalsIgnoreCase("null") && !vat.trim().isEmpty()) {
-                    output.write(centerText("Vat: " + vat).getBytes());
+                    output.write(centerText("VAT: " + vat).getBytes());
+                    output.write("\n".getBytes());
+
                 }
 
+                output.write(ESC_FONT_SIZE_MEDIUM);
                 String invoice = data.getString("order_no");
                 output.write(centerText("Invoice No: #" + invoice).getBytes());
                 output.write("\n".getBytes());
+                output.write(ESC_ALIGN_LEFT);
                 output.write(ESC_FONT_SIZE_RESET);
                 String type = data.getString("order_type");
 
@@ -156,10 +172,20 @@ public class PayableHandler {
                 int tableSeats = data.optInt("table_seats", 0);
 
                 if(type.equalsIgnoreCase("dinein")) {
+
+                    output.write(ESC_ALIGN_CENTER);
                     output.write(ESC_FONT_SIZE_LARGE);
                     output.write(centerText("Dine-In").getBytes());
+                    output.write("\n".getBytes());
                     output.write(ESC_FONT_SIZE_RESET);
-                    output.write("\n-------------------------------------------\n".getBytes());
+                    output.write(ESC_ALIGN_LEFT);
+
+                    /*output.write(ESC_ALIGN_CENTER);
+                    output.write(ESC_FONT_SIZE_LARGE);
+                    output.write(centerText("Dine-In").getBytes());
+                    output.write(ESC_ALIGN_LEFT);
+                    output.write(ESC_FONT_SIZE_RESET);*/
+                    output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
 
@@ -180,19 +206,40 @@ public class PayableHandler {
 
 
                 }else if(type.equalsIgnoreCase("delivery")){
+
+                    output.write(ESC_ALIGN_CENTER);
                     output.write(ESC_FONT_SIZE_LARGE);
                     output.write(centerText("Delivery").getBytes());
+                    output.write("\n".getBytes());
                     output.write(ESC_FONT_SIZE_RESET);
-                    output.write("\n-------------------------------------------\n".getBytes());
+                    output.write(ESC_ALIGN_LEFT);
+
+                    output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
                     output.write(("Address: " + data.getString("customer_address") + "\n").getBytes());
                     output.write(("Phone: " + data.getString("customer_phone") + "\n").getBytes());
-                }else{
+                }else if(type.equalsIgnoreCase("takeaway")) {
+
+                    output.write(ESC_ALIGN_CENTER);
                     output.write(ESC_FONT_SIZE_LARGE);
                     output.write(centerText("Takeaway").getBytes());
+                    output.write("\n".getBytes());
                     output.write(ESC_FONT_SIZE_RESET);
-                    output.write("\n-------------------------------------------\n".getBytes());
+                    output.write(ESC_ALIGN_LEFT);
+
+                    output.write("-------------------------------------------\n".getBytes());
+                    output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
+                    output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
+                }else{
+                    output.write(ESC_ALIGN_CENTER);
+                    output.write(ESC_FONT_SIZE_LARGE);
+                    output.write(centerText(type).getBytes());
+                    output.write("\n".getBytes());
+                    output.write(ESC_FONT_SIZE_RESET);
+                    output.write(ESC_ALIGN_LEFT);
+
+                    output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
                 }
@@ -201,6 +248,116 @@ public class PayableHandler {
             output.write("\n-------------------------------------------\n".getBytes());
 
             Iterator<String> categories = details.keys();
+            while (categories.hasNext()) {
+
+                JSONObject items = details.getJSONObject(categories.next());
+                Iterator<String> itemIds = items.keys();
+
+                while (itemIds.hasNext()) {
+                    JSONObject item = items.getJSONObject(itemIds.next());
+                    output.write(ESC_FONT_SIZE_MEDIUM);
+
+                    String itemName = item.getString("item");
+                    double quantity = Double.parseDouble(item.getString("quantity"));
+                    double amount = Double.parseDouble(item.getString("amount"));
+
+                    JSONObject addonObj = item.optJSONObject("addon");
+                    boolean hasAddon = addonObj != null && addonObj.length() > 0;
+
+                    totalItems += quantity;
+
+                    // ------------ WORD WRAP FUNCTION FOR ITEM NAME ----------
+                    int maxNameWidth = 32;  // Adjust for printer width
+
+                    List<String> nameLines = new ArrayList<>();
+                    String[] words = itemName.split(" ");
+                    StringBuilder current = new StringBuilder();
+
+                    for (String w : words) {
+                        if (current.length() + w.length() + 1 > maxNameWidth) {
+                            nameLines.add(current.toString());
+                            current = new StringBuilder(w);
+                        } else {
+                            if (current.length() > 0) current.append(" ");
+                            current.append(w);
+                        }
+                    }
+                    nameLines.add(current.toString());
+                    // --------------------------------------------------------
+
+                    // ---------- FIRST LINE (with qty + amount right aligned) ----------
+                    String firstLineName = nameLines.get(0);
+                    String firstLine = String.format("%.0f x %-"+maxNameWidth+"s", quantity, firstLineName);
+
+                    output.write(firstLine.getBytes());
+
+                    if (amount > 0) {
+                        output.write(new byte[]{(byte) 0x9C});  // £
+                        double amountNew = quantity * amount;
+                        output.write(String.format("%.2f", amountNew).getBytes());
+                    }
+                    output.write("\n".getBytes());
+                    // --------------------------------------------------------------------
+
+                    // -------- REMAINING WRAPPED LINES (NO AMOUNT) --------
+                    for (int i = 1; i < nameLines.size(); i++) {
+                        output.write(("    " + nameLines.get(i) + "\n").getBytes());
+                    }
+
+                    // ---------------- ADDONS ----------------
+                    if (hasAddon) {
+                        Iterator<String> addonKeys = addonObj.keys();
+                        while (addonKeys.hasNext()) {
+                            JSONObject addon = addonObj.getJSONObject(addonKeys.next());
+
+                            String adName = addon.getString("ad_name");
+                            double adQty = Double.parseDouble(addon.getString("ad_qty"));
+                            double adPrice = Double.parseDouble(addon.getString("ad_price"));
+
+                            // WRAP ADDON NAMES ALSO
+                            List<String> addonLines = new ArrayList<>();
+                            String[] adWords = adName.split(" ");
+                            StringBuilder adCurrent = new StringBuilder();
+
+                            int addonWidth = 29;  // keeps addon alignment clean
+
+                            for (String w : adWords) {
+                                if (adCurrent.length() + w.length() + 1 > addonWidth) {
+                                    addonLines.add(adCurrent.toString());
+                                    adCurrent = new StringBuilder(w);
+                                } else {
+                                    if (adCurrent.length() > 0) adCurrent.append(" ");
+                                    adCurrent.append(w);
+                                }
+                            }
+                            addonLines.add(adCurrent.toString());
+
+                            // First addon line (with price)
+                            String adFirst = String.format("   %.0f x %-"+addonWidth+"s", adQty, addonLines.get(0));
+                            output.write(adFirst.getBytes());
+
+                            if (adPrice > 0) {
+                                output.write(new byte[]{(byte) 0x9C});
+                                double priceNew = adQty * adPrice;
+                                output.write(String.format("%.2f", priceNew).getBytes());
+                            }
+                            output.write("\n".getBytes());
+
+                            // Remaining addon wrapped lines
+                            for (int i = 1; i < addonLines.size(); i++) {
+                                output.write(("       " + addonLines.get(i) + "\n").getBytes());
+                            }
+                        }
+                    }
+
+                    output.write("\n".getBytes());
+                    output.write(ESC_FONT_SIZE_RESET);
+                }
+            }
+
+            output.write("-------------------------------------------\n".getBytes());
+
+            /*Iterator<String> categories = details.keys();
             while (categories.hasNext()) {
                 JSONObject items = details.getJSONObject(categories.next());
                 Iterator<String> itemIds = items.keys();
@@ -261,33 +418,37 @@ public class PayableHandler {
                 }
             }
 
-            output.write("-------------------------------------------\n".getBytes());
+            output.write("-------------------------------------------\n".getBytes());*/
 
             String subtotal = data.getString("subtotal");
             output.write(paddedLine(subtotalLabel, subtotal));
 
             if ("Before_Invoice".equalsIgnoreCase(printType)) {
                 String tipAmount = queryParams.getOrDefault("tip", "0.00");
-                if (!"0".equals(tipAmount) && !"".equals(tipAmount)) {
+
+                if (tipAmount != null && !tipAmount.equalsIgnoreCase("null") && !tipAmount.equals("0.00") && !tipAmount.equalsIgnoreCase("undefined")) {
                     output.write(paddedLine(tipAmountLabel, tipAmount));
                 }
                 String serviceFee = queryParams.getOrDefault("servicefee", "0.00");
-                if (!"0".equals(serviceFee) && !"".equals(serviceFee)) {
+                if (serviceFee != null && !serviceFee.equalsIgnoreCase("null") && !serviceFee.equals("0.00")) {
                     output.write(paddedLine("Service Charge", serviceFee));
                 }
 
                 String discount = queryParams.getOrDefault("discount", "0.00");
-                if (!"0".equals(discount) && !"".equals(discount)) {
+//                if (!"0".equals(discount) && !"".equals(discount)) {
+                if (discount != null && !discount.equalsIgnoreCase("null") && !discount.equals("0.00") && !"0".equals(discount) && !"".equals(discount)) {
                     output.write(paddedLine(discountLabel, discount));
                 }
 
                 String deliveryFee = queryParams.getOrDefault("delfee", "0.00");
-                if (!"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
+                if (deliveryFee != null && !deliveryFee.equalsIgnoreCase("null") && !deliveryFee.equals("0.00") && !"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
+//                if (!"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
                     output.write(paddedLine("Delivery Fee", deliveryFee));
                 }
 
                 String deposit = queryParams.getOrDefault("deposit", "0.00");
-                if (!"0".equals(deposit) && !"".equals(deposit)) {
+                if (deposit != null && !deposit.equalsIgnoreCase("null") && !deposit.equals("0.00") && !"0".equals(deposit) && !"".equals(deposit)) {
+//                if (!"0".equals(deposit) && !"".equals(deposit)) {
                     output.write(paddedLine("Deposit", deposit));
                 }
 
@@ -358,9 +519,16 @@ public class PayableHandler {
                 output.write(new byte[]{0x1B, 0x61, 0x00});
                 output.write(ESC_FONT_SIZE_RESET);
             }
-            output.write(("Served by: "+ data.getString("waiter_name") +"\n\n").getBytes());
+            output.write(("Served by: "+ data.getString("waiter_name") +"\n").getBytes());
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            output.write(("Printed : " + printedTime + "\n\n").getBytes());
+
             output.write(new byte[]{0x1B, 0x64, 0x03}); // Feed 3 lines
             output.write(new byte[]{0x1D, 0x56, 0x00}); // Full cut
+
         } catch (Exception e) {
             Log.e(TAG, "Error formatting print text", e);
         }
@@ -791,6 +959,12 @@ public class PayableHandler {
                 output.write(ESC_FONT_SIZE_RESET);
             }
             output.write(("Served by: "+ data.getString("waiter_name") +"\n\n").getBytes());
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            output.write(("Printed : " + printedTime + "\n\n").getBytes());
+
             output.write(new byte[]{0x1B, 0x64, 0x03}); // Feed 3 lines
             output.write(new byte[]{0x1D, 0x56, 0x00}); // Full cut
         } catch (Exception e) {
@@ -1003,6 +1177,12 @@ public class PayableHandler {
                 output.write(ESC_FONT_SIZE_RESET);
             }
             output.write(("Served by: " + data.optString("waiter_name", "") + "\n\n").getBytes());
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            output.write(("Printed : " + printedTime + "\n\n").getBytes());
+
             output.write(new byte[]{0x1B, 0x64, 0x03});
             output.write(new byte[]{0x1D, 0x56, 0x00});
 

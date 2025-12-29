@@ -14,6 +14,8 @@ public class PrinterStatusHelper {
         public boolean paperOk;
         public boolean busy;
         public byte[] raw;
+        public String paper;
+        public String status;
     }
 
     public static Status queryBasic(String ip, int port, int connectTimeoutMs, int readTimeoutMs) throws Exception {
@@ -48,6 +50,8 @@ public class PrinterStatusHelper {
             st.online = ((b >> 0) & 1) == 0;
             st.paperOk = ((b >> 3) & 1) == 0;
             st.busy = ((b >> 5) & 1) == 1;
+            st.paper = st.paperOk ? "OK" : "Out";
+            st.status = st.busy ? "busy" : "free";
             return st;
         } finally {
             try { s.close(); } catch (Exception ignored) {}

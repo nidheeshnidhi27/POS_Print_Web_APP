@@ -1,6 +1,7 @@
 package com.example.posprint;
 
 import android.content.Context;
+import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -11,7 +12,9 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 
 public class PettyCashHandler {
@@ -106,6 +109,11 @@ public class PettyCashHandler {
 
             formattedText.append(centerText("Thank you for visiting us!", false)).append("\n");
 
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            formattedText.append("Printed : ").append(printedTime).append("\n\n");
+
         } catch (Exception e) {
             Log.e("PettyCashPrint", "Error formatting petty cash", e);
         }
@@ -168,6 +176,11 @@ public class PettyCashHandler {
 
             formattedText.append("-".repeat(41)).append("\n");
             formattedText.append(centerText("Thank you for visiting us!", false)).append("\n");
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            formattedText.append("Printed : ").append(printedTime).append("\n\n");
 
         } catch (Exception e) {
             Log.e(TAG, "Error formatting today petty cash", e);

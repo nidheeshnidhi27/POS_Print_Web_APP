@@ -1,9 +1,13 @@
 package com.example.posprint;
 
 import android.content.Context;
+import android.icu.text.SimpleDateFormat;
 import android.util.Log;
 
 import org.json.JSONObject;
+
+import java.util.Date;
+import java.util.Locale;
 
 public class MainsAwayHandler {
     private static final String ESC_FONT_SIZE_LARGE = "\u001B" + "!" + (char) 51;  // Double width + height + bold
@@ -68,6 +72,11 @@ public class MainsAwayHandler {
         text.append(ESC_FONT_SIZE_LARGE).append(centerText(message, true)).append(ESC_FONT_SIZE_RESET).append("\n");
         text.append("-----------------------------------------\n\n");
         text.append(ESC_FONT_SIZE_MEDIUM).append(centerText("*** KITCHEN COPY ***", true)).append(ESC_FONT_SIZE_RESET).append("\n");
+
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+        String printedTime = sdf.format(new Date());
+
+        text.append("Printed : ").append(printedTime).append("\n\n");
 
         String finalBytes = String.valueOf(text);
         try {

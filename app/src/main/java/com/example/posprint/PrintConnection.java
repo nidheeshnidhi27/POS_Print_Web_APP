@@ -55,63 +55,33 @@ public class PrintConnection {
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
 
-                drainWithTimeout(input);
-                byte[] statusBytes;
-                // Try DLE EOT 2 first (matches your backend)
-                output.write(new byte[]{0x10, 0x04, 0x02});
-                output.flush();
-                statusBytes = readUntilTimeout(input);
-                if (statusBytes == null || statusBytes.length == 0) {
-                    // Fallback: DLE EOT 4
-                    output.write(new byte[]{0x10, 0x04, 0x04});
-                    output.flush();
-                    statusBytes = readUntilTimeout(input);
+                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                if (!st.online) {
+                    message = "Printer is offline";
+                    showNotification(message);
+                    success = false;
+                    safeClose(socket);
+                    postResult(callback, success, message);
+                    return;
                 }
-
-                if (statusBytes == null || statusBytes.length == 0) {
-                    // No status response — proceed cautiously after drain
-                    Log.w(TAG, "No status response; proceeding to print after drain");
-                } else {
-                    int first = statusBytes[0] & 0xFF;
-                    Log.d(TAG, "Status bytes (hex): " + bytesToHex(statusBytes));
-                    Log.d(TAG, "Status first byte: " + first);
-                    boolean offline = ((first >> 0) & 1) == 1;
-                    boolean paperEnd = ((first >> 3) & 1) == 1;
-                    boolean busy = ((first >> 5) & 1) == 1;
-                    if (offline) {
-                        message = "Printer is offline";
+                if (!st.paperOk) {
+                    message = "Paper " + st.paper;
+                    showNotification(message);
+                    success = false;
+                    safeClose(socket);
+                    postResult(callback, success, message);
+                    return;
+                }
+                if (st.busy) {
+                    try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                    st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                    if (st.busy) {
+                        message = "Printer " + st.status;
                         showNotification(message);
                         success = false;
                         safeClose(socket);
                         postResult(callback, success, message);
                         return;
-                    }
-                    if (paperEnd) {
-                        message = "Paper out";
-                        showNotification(message);
-                        success = false;
-                        safeClose(socket);
-                        postResult(callback, success, message);
-                        return;
-                    }
-                    if (busy) {
-                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
-                        drainWithTimeout(input);
-                        output.write(new byte[]{0x10, 0x04, 0x02});
-                        output.flush();
-                        byte[] again = readUntilTimeout(input);
-                        if (again != null && again.length > 0) {
-                            int f2 = again[0] & 0xFF;
-                            boolean stillBusy = ((f2 >> 5) & 1) == 1;
-                            if (stillBusy) {
-                                message = "Printer busy";
-                                showNotification(message);
-                                success = false;
-                                safeClose(socket);
-                                postResult(callback, success, message);
-                                return;
-                            }
-                        }
                     }
                 }
 

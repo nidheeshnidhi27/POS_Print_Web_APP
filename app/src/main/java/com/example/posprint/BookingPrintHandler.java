@@ -1,6 +1,7 @@
 package com.example.posprint;
 
 import android.content.Context;
+import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -8,6 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Date;
 import java.util.Locale;
 
 public class BookingPrintHandler {
@@ -98,6 +100,11 @@ public class BookingPrintHandler {
 
             // Footer Centered
             builder.append(centerText("Thank you for visiting us!", false)).append("\n");
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            builder.append("Printed : ").append(printedTime).append("\n");
 
         } catch (Exception e) {
             Log.e("BookingPrint", "Error formatting booking text", e);

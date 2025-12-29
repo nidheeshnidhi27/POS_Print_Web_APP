@@ -3,6 +3,7 @@ package com.example.posprint;
 import static androidx.fragment.app.FragmentManager.TAG;
 
 import android.content.Context;
+import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -10,7 +11,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Date;
 import java.util.Iterator;
+import java.util.Locale;
 
 public class KOTHandler {
 
@@ -181,6 +184,10 @@ public class KOTHandler {
 
                 formattedText.append("-".repeat(45)).append("\n");
             }
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
+            String printedTime = sdf.format(new Date());
+
+            formattedText.append("Printed : ").append(printedTime).append("\n");
 
         } catch (Exception e) {
             Log.e(TAG, "Error formatting KOT text", e);
