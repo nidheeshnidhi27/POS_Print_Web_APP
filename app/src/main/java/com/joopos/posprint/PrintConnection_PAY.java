@@ -1,11 +1,11 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.example.posprint.notification.NotificationUtils;
+import com.joopos.posprint.notification.NotificationUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;

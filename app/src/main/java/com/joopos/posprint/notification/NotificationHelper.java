@@ -1,4 +1,4 @@
-package com.example.posprint.notification;
+package com.joopos.posprint.notification;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;

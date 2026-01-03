@@ -1,4 +1,4 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import static androidx.fragment.app.FragmentManager.TAG;
 
@@ -29,7 +29,7 @@ public class KOTHandlerOnline {
         this.response = response;
         this.details = details;
     }
-    public void handleKOT() {
+    /*public void handleKOT() {
         try {
             // Loop through each detail object (e.g., "1", "6")
             for (Iterator<String> keyIterator = details.keys(); keyIterator.hasNext(); ) {
@@ -53,25 +53,100 @@ public class KOTHandlerOnline {
                         .optInt("kot_print_copies", 1); // default 1
 
 
-                /*int copies;
+                *//*int copies;
                 if (key.equals("8")) {
                     copies = 1;
                 } else {
                     copies = kotPrintCopies;      // Print 3 times update for KOTTARAM RESTAURANT
                 }
 
-                Log.d("KOTHandler", "Printer ID " + printerId + " → copies = " + copies);*/
+                Log.d("KOTHandler", "Printer ID " + printerId + " → copies = " + copies);*//*
 
                 // 🔥 Execute printing multiple times
                 for (int i = 0; i < kotPrintCopies; i++) {
                     //                                    todo _hide 02/12
-                    /*PrintConnection printConnection = new PrintConnection(context, printerIP, printerPort, formattedText);
-                    printConnection.execute();*/
+                    *//*PrintConnection printConnection = new PrintConnection(context, printerIP, printerPort, formattedText);
+                    printConnection.execute();*//*
+                    PrintConnection printer = new PrintConnection(context);
+                    printer.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
+                        Log.d("KOT_PRINT_CALLBACK", "Success=" + success + " | Message=" + msg);
+                    });
                 }
 
             }
         } catch (Exception e) {
             Log.e(TAG, "Error handling KOT", e);
+        }
+    }*/
+
+
+    public void handleKOT() {
+        try {
+
+            for (Iterator<String> keyIterator = details.keys(); keyIterator.hasNext(); ) {
+
+                String key = keyIterator.next();
+                JSONObject objectDetails = details.getJSONObject(key);
+
+                // ------------------------------
+                //  GET PRINTER ID (supports int & JSONArray)
+                // ------------------------------
+                Object printerObj = objectDetails.get("printer");
+                int printerId = -1;
+
+                if (printerObj instanceof JSONArray) {
+                    JSONArray printerArray = (JSONArray) printerObj;
+                    if (printerArray.length() > 0) {
+                        printerId = printerArray.optInt(0, -1);
+                    }
+                } else if (printerObj instanceof Number) {
+                    printerId = ((Number) printerObj).intValue();
+                }
+
+                if (printerId == -1) {
+                    Log.e(TAG, "Invalid printer ID.");
+                    continue;
+                }
+
+                // ------------------------------
+                //  GET PRINTER DETAILS FROM API
+                // ------------------------------
+                JSONObject printerDetails =
+                        getPrinterDetails(printerId, response.getJSONArray("printers"));
+
+                if (printerDetails == null) {
+                    Log.e(TAG, "No printer found for printerId=" + printerId);
+                    continue;
+                }
+
+                String ip = printerDetails.optString("ip");
+                int port = Integer.parseInt(printerDetails.optString("port", "9100"));
+
+                // ------------------------------
+                //  BUILD KOT PRINT TEXT
+                // ------------------------------
+                String textToPrint = formatOnlineKOTText(response, objectDetails);
+
+                int kotCopies = response.getJSONArray("printsettings")
+                        .getJSONObject(0)
+                        .optInt("kot_print_copies", 1);
+
+                // ------------------------------
+                //  PRINT USING PrintConnection with status check
+                // ------------------------------
+                final int finalPrinterId = printerId;
+                for (int i = 0; i < kotCopies; i++) {
+                    final int finalCopyNo = i + 1;
+                    PrintConnection printer = new PrintConnection(context);
+                    printer.printWithStatusCheck(ip, port, textToPrint, (success, msg) -> {
+                        Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
+                    });
+                    try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error in handleKOT", e);
         }
     }
 
@@ -80,7 +155,7 @@ public class KOTHandlerOnline {
         try {
             JSONObject orderDetails = objectDetails.getJSONObject("order_details");
             formattedText.append(ESC_FONT_SIZE_LARGE)
-                    .append(centerText("KOT :Kitchen", true))
+                    .append(centerTextCat("KOT :Kitchen", true))
                     .append(ESC_FONT_SIZE_RESET).append("\n");
             formattedText.append("-".repeat(45)).append("\n");
 
@@ -128,10 +203,10 @@ public class KOTHandlerOnline {
                 if (tableno != null &&
                         !tableno.trim().isEmpty() &&
                         !tableno.equalsIgnoreCase("null")) {
-
+                    String cleanTableNo = tableno.replaceAll("(?i)table", "").trim();
                     formattedText.append("\n")
                             .append(ESC_FONT_SIZE_LARGE)
-                            .append("Table: " ).append(tableno)
+                            .append("Table: " ).append(cleanTableNo)
                             .append(ESC_FONT_SIZE_RESET);
                     formattedText.append("\nSeats: ").append(tableSeats);
                 } else {
@@ -144,7 +219,7 @@ public class KOTHandlerOnline {
 
             formattedText.append("\n\n")
                     .append(ESC_FONT_SIZE_LARGE)
-                    .append(centerText(displayType + " #" + orderNo, true))
+                    .append(centerTextCat(displayType + " #" + orderNo, true))
                     .append(ESC_FONT_SIZE_RESET)
                     .append("\n\n");
 
@@ -163,7 +238,7 @@ public class KOTHandlerOnline {
                     Object itemObj = categories.get(category);
 
                     formattedText.append(ESC_FONT_SIZE_LARGE)
-                            .append(centerText(category, true))
+                            .append(centerTextCat(category, true))
                             .append(ESC_FONT_SIZE_RESET).append("\n")
                             .append("-".repeat(45)).append("\n");
 
@@ -213,7 +288,7 @@ public class KOTHandlerOnline {
             SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
             String printedTime = sdf.format(new Date());
 
-            formattedText.append("Printed : ").append(printedTime).append("\n");
+            formattedText.append("Printed : ").append(printedTime).append("\n\n");
         } catch (Exception e) {
             Log.e(TAG, "Error formatting KOT text", e);
         }
@@ -289,9 +364,10 @@ public class KOTHandlerOnline {
         if (!category.equalsIgnoreCase("BANQUET NIGHTS")) {
             String other = item.optString("other");
             if (other != null && !other.trim().isEmpty()) {
-                formattedText.append("\n").append("Note: ").append("\n");
+                formattedText.append("\n").append("Note: ").append(other).append("\n");
             }
         }
+
 
         formattedText.append("\n");
     }
@@ -309,7 +385,26 @@ public class KOTHandlerOnline {
         }
     }
 
+    private String centerTextCat(String text, boolean isDoubleWidth) {
 
+        if (TextUtils.isEmpty(text)) return "";
+
+        // Normal font = 40 columns
+        // Double width font = 20 columns
+        int printerWidth = isDoubleWidth ? 30 : 45;
+
+        if (text.length() >= printerWidth) {
+            return text; // no centering possible
+        }
+
+        int leftPadding = (printerWidth - text.length()) / 2;
+
+        return String.format(
+                Locale.US,
+                "%" + (leftPadding + text.length()) + "s",
+                text
+        );
+    }
 
     private String centerText(String text, boolean isDoubleWidth) {
         int fullLineWidth = 45;

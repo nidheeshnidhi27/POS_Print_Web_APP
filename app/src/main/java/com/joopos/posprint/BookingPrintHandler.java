@@ -1,4 +1,4 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import android.content.Context;
 import android.icu.text.SimpleDateFormat;
@@ -14,6 +14,7 @@ import java.util.Locale;
 
 public class BookingPrintHandler {
     private Context context;
+    int lineLength = 40;
     private JSONObject response;
 //    private static final String ESC_FONT_SIZE_LARGE = "\u001B" + "!" + (char) 51;  // Double width + height + bold
     private static final String ESC_FONT_BOLD_ON = "\u001B\u0045\u0001";
@@ -23,6 +24,9 @@ public class BookingPrintHandler {
     private static final String ESC_FONT_SIZE_MEDIUM = "\u001B" + "!" + (char) 46;
     private static final String ESC_FONT_SIZE_SMALL = "\u001B" + "!" + (char) 23;
     private static final String ESC_FONT_SIZE_RESET = "\u001B" + "!" + (char) 0;
+
+    private static final byte[] ESC_ALIGN_CENTER = new byte[]{0x1B, 0x61, 0x01};
+    private static final byte[] ESC_ALIGN_LEFT   = new byte[]{0x1B, 0x61, 0x00};
 
     public BookingPrintHandler(Context context, JSONObject response) {
         this.context = context;
@@ -45,6 +49,11 @@ public class BookingPrintHandler {
             //                                    todo _hide 02/12
 //            new PrintConnection(context, printerIP, printerPort, formattedText).execute();
 
+            PrintConnection pc = new PrintConnection(context);
+            pc.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
+                Log.d("DailyReportPrint", success + " → " + msg);
+            });
+
         } catch (Exception e) {
             Log.e("BookingPrint", "Error printing booking", e);
         }
@@ -66,7 +75,8 @@ public class BookingPrintHandler {
             builder.append(ESC_FONT_BOLD_ON)
                     .append(ESC_FONT_SIZE_LARGE)
                     .append(centerText(name.toUpperCase(), true))
-                    .append(ESC_FONT_RESET).append("\n");
+                    .append("\n")
+                    .append(ESC_FONT_RESET);
 
             // Address and Phone Centered
             builder.append(centerText(address, false)).append("\n");
@@ -100,11 +110,12 @@ public class BookingPrintHandler {
 
             // Footer Centered
             builder.append(centerText("Thank you for visiting us!", false)).append("\n");
+            builder.append("------------------------------------------\n");
 
             SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault());
             String printedTime = sdf.format(new Date());
 
-            builder.append("Printed : ").append(printedTime).append("\n");
+            builder.append("Printed : ").append(printedTime).append("\n\n");
 
         } catch (Exception e) {
             Log.e("BookingPrint", "Error formatting booking text", e);
@@ -113,13 +124,36 @@ public class BookingPrintHandler {
         return builder.toString();
     }
 
-    private String centerText(String text, boolean isDoubleWidth) {
+    /*private String centerText(String text, boolean isDoubleWidth) {
         int fullLineWidth = 45;
         int visualTextLength = isDoubleWidth ? text.length() * 2 : text.length();
         int spaces = (fullLineWidth - visualTextLength) / 2;
         if (spaces < 0) spaces = 0;
         return " ".repeat(spaces) + text;
+    }*/
+
+    private String centerText(String text, boolean isDoubleWidth) {
+
+        if (TextUtils.isEmpty(text)) return "";
+
+        // Normal font = 40 columns
+        // Double width font = 20 columns
+        int printerWidth = isDoubleWidth ? 24 : 45;
+
+        if (text.length() >= printerWidth) {
+            return text; // no centering possible
+        }
+
+        int leftPadding = (printerWidth - text.length()) / 2;
+
+        return String.format(
+                Locale.US,
+                "%" + (leftPadding + text.length()) + "s",
+                text
+        );
     }
+
+
 
     private JSONObject getPrinterDetails(int id, JSONArray printers) throws JSONException {
         for (int i = 0; i < printers.length(); i++) {

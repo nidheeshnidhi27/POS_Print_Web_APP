@@ -1,4 +1,4 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import android.os.AsyncTask;
 import android.util.Log;

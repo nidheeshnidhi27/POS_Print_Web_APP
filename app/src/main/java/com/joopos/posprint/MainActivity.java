@@ -1,4 +1,4 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -27,9 +27,11 @@ import java.util.HashMap;
 import java.util.Map;
 import androidx.appcompat.app.AlertDialog;
 import android.webkit.CookieManager;
+
+import com.joopos.posprint.R;
 import com.google.android.material.snackbar.Snackbar;
 
-import com.example.posprint.notification.NotificationHelper;
+import com.joopos.posprint.notification.NotificationHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";

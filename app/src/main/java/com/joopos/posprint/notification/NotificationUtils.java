@@ -1,4 +1,4 @@
-package com.example.posprint.notification;
+package com.joopos.posprint.notification;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -6,8 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import androidx.core.app.NotificationCompat;
 
-import com.example.posprint.MainActivity;
-import com.example.posprint.R;
+import com.joopos.posprint.MainActivity;
+import com.joopos.posprint.R;
 
 public class NotificationUtils {
 
@@ -26,7 +26,7 @@ public class NotificationUtils {
 
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(context, NotificationHelper.CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_pos)  // your app icon
+                        .setSmallIcon(R.drawable.joopos_logo)  // your app icon
                         .setContentTitle("Printer Error")
                         .setContentText(message)
                         .setStyle(new NotificationCompat.BigTextStyle().bigText(message))

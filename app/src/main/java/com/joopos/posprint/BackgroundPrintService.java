@@ -1,6 +1,6 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
-import static com.example.posprint.PrintUtils.convertBitmapToEscPos;
+import static com.joopos.posprint.PrintUtils.convertBitmapToEscPos;
 
 import android.app.IntentService;
 import android.content.Intent;
@@ -606,6 +606,9 @@ public class BackgroundPrintService extends IntentService {
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for online_report.");
                                 }
+                            }
+                            else if ("open_cash_drawer".equalsIgnoreCase(type)) {
+                                new CashDrawerPrintHandler(getApplicationContext(), response).handleCashDrawerPrint();
                             }
 
                             else {

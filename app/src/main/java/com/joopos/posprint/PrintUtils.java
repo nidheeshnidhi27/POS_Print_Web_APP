@@ -1,4 +1,4 @@
-package com.example.posprint;
+package com.joopos.posprint;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
