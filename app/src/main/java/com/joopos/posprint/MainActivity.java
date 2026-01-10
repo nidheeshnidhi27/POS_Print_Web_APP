@@ -249,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
         if (saved == null || saved.trim().isEmpty()) {
             urlBar.setVisibility(View.VISIBLE);
             urlBar.bringToFront();
-            urlInput.setText("https://allinonepos.joopos.com/login");
+            urlInput.setText("https://");
         } else {
             urlBar.setVisibility(View.GONE);
             Map<String,String> headers = new HashMap<>();
