@@ -55,8 +55,8 @@ public class PrintConnection {
             Socket socket = null;
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 4000);
-                socket.setSoTimeout(200);
+                socket.connect(new InetSocketAddress(ip, port), 1500);
+                socket.setSoTimeout(150);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -101,7 +101,7 @@ public class PrintConnection {
                         return;
                     }
                     if (busy) {
-                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                         drainWithTimeout(input);
                         output.write(new byte[]{0x10, 0x04, 0x02});
                         output.flush();
@@ -131,10 +131,10 @@ public class PrintConnection {
                 output.write(new byte[]{0x0A}); // ensure final line commits
                 output.flush();
 
-                try { Thread.sleep(120); } catch (InterruptedException ignored) {}
+                try { Thread.sleep(60); } catch (InterruptedException ignored) {}
                 output.write(new byte[]{0x1B, 0x64, 0x02}); // feed 2 lines
                 output.flush();
-                try { Thread.sleep(120); } catch (InterruptedException ignored) {}
+                try { Thread.sleep(60); } catch (InterruptedException ignored) {}
                 output.write(new byte[]{0x1D, 0x56, 0x00}); // full cut
                 output.flush();
 
@@ -155,6 +155,42 @@ public class PrintConnection {
                 safeClose(socket);
             }
 
+            postResult(callback, success, message);
+        });
+    }
+
+    public void printFast(String ip, int port, String textToPrint, Callback callback) {
+        String key = ip + ":" + port;
+        execFor(key).execute(() -> {
+            boolean success = false;
+            String message = "Unknown error";
+                Socket socket = null;
+                try {
+                    socket = new Socket();
+                socket.connect(new InetSocketAddress(ip, port), 400);
+                socket.setSoTimeout(60);
+                InputStream input = socket.getInputStream();
+                OutputStream output = socket.getOutputStream();
+                drainWithTimeout(input);
+                Charset cs = Charset.forName("CP858");
+                output.write(textToPrint.getBytes(cs));
+                output.write(new byte[]{0x0A});
+                output.flush();
+                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                output.write(new byte[]{0x1B, 0x64, 0x02});
+                output.flush();
+                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                output.write(new byte[]{0x1D, 0x56, 0x00});
+                output.flush();
+                message = "Printed fast";
+                success = true;
+            } catch (Exception e) {
+                message = "Fast print failed: " + e.getMessage();
+                showNotification(message);
+                Log.e(TAG, message, e);
+            } finally {
+                safeClose(socket);
+            }
             postResult(callback, success, message);
         });
     }
@@ -240,8 +276,8 @@ public class PrintConnection {
 
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 4000);
-                socket.setSoTimeout(200);
+                socket.connect(new InetSocketAddress(ip, port), 1500);
+                socket.setSoTimeout(150);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -262,17 +298,17 @@ public class PrintConnection {
                 // 🔥 STEP 1: OPEN CASH DRAWER
                 output.write(drawerPulse);
                 output.flush();
-                Thread.sleep(80);
+                Thread.sleep(50);
 
                 // 🔥 STEP 2: PRINT TEXT
                 output.write(textToPrint.getBytes(Charset.forName("CP858")));
                 output.write(new byte[]{0x0A}); // ensure final line commits
                 output.flush();
 
-                Thread.sleep(120);
+                Thread.sleep(60);
                 output.write(new byte[]{0x1B, 0x64, 0x02}); // feed
                 output.flush();
-                Thread.sleep(120);
+                Thread.sleep(60);
                 output.write(new byte[]{0x1D, 0x56, 0x00}); // cut
                 output.flush();
 

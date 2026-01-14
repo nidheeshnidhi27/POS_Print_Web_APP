@@ -1,7 +1,5 @@
 package com.joopos.posprint;
 
-import static androidx.fragment.app.FragmentManager.TAG;
-
 import android.content.Context;
 import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
@@ -16,6 +14,7 @@ import java.util.Iterator;
 import java.util.Locale;
 
 public class KOTHandlerOnline {
+    private static final String TAG = "KOTHandlerOnline";
     Context context;
     JSONObject response, details;
     private static final String ESC_FONT_SIZE_LARGE = "\u001B" + "!" + (char) 51;  // Double width + height + bold
@@ -121,6 +120,7 @@ public class KOTHandlerOnline {
 
                 String ip = printerDetails.optString("ip");
                 int port = Integer.parseInt(printerDetails.optString("port", "9100"));
+                String pType = printerDetails.optString("type", "network");
 
                 // ------------------------------
                 //  BUILD KOT PRINT TEXT
@@ -137,11 +137,21 @@ public class KOTHandlerOnline {
                 final int finalPrinterId = printerId;
                 for (int i = 0; i < kotCopies; i++) {
                     final int finalCopyNo = i + 1;
-                    PrintConnection printer = new PrintConnection(context);
-                    printer.printWithStatusCheck(ip, port, textToPrint, (success, msg) -> {
-                        Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
-                    });
-                    try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                    if ("usb".equalsIgnoreCase(pType)
+                            || "windows".equalsIgnoreCase(pType)
+                            || "window".equalsIgnoreCase(pType)
+                            || ip == null || ip.trim().isEmpty()) {
+                        UsbPrintConnection usb = new UsbPrintConnection(context);
+                        usb.printText(textToPrint, (success, msg) -> {
+                            Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " USB Success=" + success + " | " + msg);
+                        });
+                    } else {
+                        PrintConnection printer = new PrintConnection(context);
+                        printer.printFast(ip, port, textToPrint, (success, msg) -> {
+                            Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
+                        });
+                    }
+                    try { Thread.sleep(15); } catch (InterruptedException ignored) {}
                 }
             }
 
@@ -164,8 +174,9 @@ public class KOTHandlerOnline {
             String orderTime = orderDetails.optString("order_time", "");
             String waiter = orderDetails.optString("waiter_name", "");
             String customer = orderDetails.optString("customer_name", "");
-            String address = orderDetails.optString("customer_address", "");
-            String phone = orderDetails.optString("customer_phone", "");
+            String address = orderDetails.optString("address", "");
+            String postcode = orderDetails.optString("postcode", "");
+            String phone = orderDetails.optString("contactno", "");
             String tableno = orderDetails.optString("tableno", "");
             int tableSeats = orderDetails.optInt("table_seats", 0);
 
@@ -189,11 +200,12 @@ public class KOTHandlerOnline {
 
 // Append to print text
             formattedText.append("\nCustomer: ").append(customer);
-
-            if (type.equals("delivery")) {
+            if (!TextUtils.isEmpty(address)) formattedText.append("\nAddress: ").append(address).append(", ").append(postcode);
+            if (!TextUtils.isEmpty(phone)) formattedText.append("\nPhone: ").append(phone);
+            /*if (type.equals("delivery")) {
                 if (!TextUtils.isEmpty(address)) formattedText.append("\nAddress: ").append(address);
                 if (!TextUtils.isEmpty(phone)) formattedText.append("\nPhone: ").append(phone);
-            }
+            }*/
 
             if (!waiter.isEmpty()) {
                 formattedText.append("\nServed by: ").append(waiter);

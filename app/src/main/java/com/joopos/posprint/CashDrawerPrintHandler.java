@@ -40,6 +40,7 @@ public class CashDrawerPrintHandler {
 
             String printerIP = printer.optString("ip");
             int printerPort = Integer.parseInt(printer.optString("port", "9100"));
+            String printerType = printer.optString("type", "network");
 
             // Get drawer pulse command
             byte[] drawerPulse = getDrawerPulseCommand(response);
@@ -47,14 +48,19 @@ public class CashDrawerPrintHandler {
             // Format print text
             String formattedText = formatDrawerText(response);
 
-            PrintConnection pc = new PrintConnection(context);
-            pc.printWithDrawerPulse(
-                    printerIP,
-                    printerPort,
-                    drawerPulse,
-                    formattedText,
-                    (success, msg) -> Log.d("CashDrawerPrint", success + " → " + msg)
-            );
+            if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                UsbPrintConnection usb = new UsbPrintConnection(context);
+                usb.printDrawerAndText(drawerPulse, formattedText, (success, msg) -> Log.d("CashDrawerPrint_USB", success + " → " + msg));
+            } else {
+                PrintConnection pc = new PrintConnection(context);
+                pc.printWithDrawerPulse(
+                        printerIP,
+                        printerPort,
+                        drawerPulse,
+                        formattedText,
+                        (success, msg) -> Log.d("CashDrawerPrint", success + " → " + msg)
+                );
+            }
 
         } catch (Exception e) {
             Log.e("CashDrawerPrint", "Error opening cash drawer", e);

@@ -50,6 +50,7 @@ public class PayableHandler {
     String changeAmt = "Change Amount: ";
     String subtotalLabel = "Subtotal: ";
     String bagFeeLabel = "Bag Fee: ";
+    String delChargeLabel = "Delivery Fee: ";
     String tipAmountLabel = "Tip Amount: ";
     String discountLabel = "Discount: ";
     String totalPayLabel = "Total PAYABLE: ";
@@ -101,6 +102,21 @@ public class PayableHandler {
         this.printerPort = printerPort;
         this.printType = printType;
         this.restSettings = restSettings;
+        this.settings = settings;
+        this.queryParams = queryParams;
+    }
+
+    public PayableHandler(Context context, JSONObject data, JSONArray outlets, JSONArray details, String printerIP, int printerPort, String printType, JSONObject restSettings, JSONObject features, Map<String, String> queryParams, JSONObject settings) {
+        this.context = context;
+        this.data = data;
+        this.outlets = outlets;
+        this.detailsObject = null;
+        this.detailsArray = details;
+        this.printerIP = printerIP;
+        this.printerPort = printerPort;
+        this.printType = printType;
+        this.restSettings = restSettings;
+        this.features = features;
         this.settings = settings;
         this.queryParams = queryParams;
     }
@@ -166,7 +182,19 @@ public class PayableHandler {
 
                 output.write(ESC_FONT_SIZE_MEDIUM);
                 String invoice = data.getString("order_no");
-                output.write(centerText("Invoice No: #" + invoice).getBytes());
+//                output.write(centerText("Invoice No: #" + invoice).getBytes());
+
+                output.write("Invoice No: ".getBytes());
+
+// Set large font for invoice value
+                byte[] largeFontOn = new byte[]{0x1B, 0x21, 0x30};  // Double width + height
+                byte[] fontReset = new byte[]{0x1B, 0x21, 0x00};    // Reset to normal font
+
+// Print invoice value in large font
+                output.write(largeFontOn);
+                output.write(("#"+invoice).getBytes());
+                output.write(fontReset);
+
                 output.write("\n".getBytes());
                 output.write(ESC_ALIGN_LEFT);
                 output.write(ESC_FONT_SIZE_RESET);
@@ -174,6 +202,10 @@ public class PayableHandler {
 
                 String tableno = data.optString("tableno", "");
                 int tableSeats = data.optInt("table_seats", 0);
+
+                String address = data.optString("customer_address", "");
+                String postcode = data.optString("postcode", "");
+                String phone = data.optString("customer_phone", "");
 
                 if(type.equalsIgnoreCase("dinein")) {
 
@@ -187,6 +219,17 @@ public class PayableHandler {
                     output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
+
+                    if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                        output.write(("Address: " + address + ", " + postcode + "\n").getBytes());
+                    }
+
+                    if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                        output.write(("Phone: " + phone + "\n").getBytes());
+                    }
+
+//                    if (!TextUtils.isEmpty(address)) output.write(("Address: " + data.optString("customer_address", "") + ", " + data.getString("postcode") + "\n").getBytes());
+//                    if (!TextUtils.isEmpty(phone)) output.write(("Phone: " + data.optString("customer_phone", "") + "\n").getBytes());
 
                     if (tableno != null &&
                             !tableno.trim().isEmpty() &&
@@ -230,6 +273,17 @@ public class PayableHandler {
                     output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
+
+                    if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                        output.write(("Address: " + address + ", " + postcode + "\n").getBytes());
+                    }
+
+                    if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                        output.write(("Phone: " + phone + "\n").getBytes());
+                    }
+
+//                    if (address != null && !TextUtils.isEmpty(address)) output.write(("Address: " + data.optString("customer_address", "") + ", " + data.getString("postcode") + "\n").getBytes());
+//                    if (phone != null && !TextUtils.isEmpty(phone)) output.write(("Phone: " + data.optString("customer_phone", "") + "\n").getBytes());
                 }else{
                     output.write(ESC_ALIGN_CENTER);
                     output.write(ESC_FONT_SIZE_LARGE);
@@ -241,6 +295,15 @@ public class PayableHandler {
                     output.write("-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
+                    if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                        output.write(("Address: " + address + ", " + postcode + "\n").getBytes());
+                    }
+
+                    if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                        output.write(("Phone: " + phone + "\n").getBytes());
+                    }
+//                    if (address != null && !TextUtils.isEmpty(address)) output.write(("Address: " + data.optString("customer_address", "") + ", " + data.getString("postcode") + "\n").getBytes());
+//                    if (!TextUtils.isEmpty(phone)) output.write(("Phone: " + data.optString("customer_phone", "") + "\n").getBytes());
                 }
 
             }
@@ -372,7 +435,9 @@ public class PayableHandler {
 
             if(data.getString("payment_method").equalsIgnoreCase("cash")) {
                 String givenAmont = data.getString("paid");
-                output.write(paddedLine(givenAmt, givenAmont));
+                if (givenAmont != null && !givenAmont.equalsIgnoreCase("null") && !givenAmont.equals("0.00")) {
+                    output.write(paddedLine(givenAmt, givenAmont));
+                }
             }
 
             String subtotal = data.getString("subtotal");
@@ -393,6 +458,10 @@ public class PayableHandler {
 //                if (!"0".equals(discount) && !"".equals(discount)) {
                 if (discount != null && !discount.equalsIgnoreCase("null") && !discount.equals("0.00") && !"0".equals(discount) && !"".equals(discount)) {
                     output.write(paddedLine(discountLabel, discount));
+                }
+                String bagFee = data.optString("bag_fee", "0.00");
+                if (bagFee != null && !bagFee.equalsIgnoreCase("null") && !bagFee.equals("0.00")) {
+                    output.write(paddedLine(bagFeeLabel, bagFee));
                 }
 
                 String deliveryFee = queryParams.getOrDefault("delfee", "0.00");
@@ -426,6 +495,10 @@ public class PayableHandler {
                 String bagFee = data.optString("bag_fee", "0.00");
                 if (bagFee != null && !bagFee.equalsIgnoreCase("null") && !bagFee.equals("0.00")) {
                     output.write(paddedLine(bagFeeLabel, bagFee));
+                }
+                String deliveryCharge = data.optString("delivery_charge", "0.00");
+                if (deliveryCharge != null && !deliveryCharge.equalsIgnoreCase("null") && !deliveryCharge.equals("0.00")) {
+                    output.write(paddedLine(delChargeLabel, deliveryCharge));
                 }
                 String discount = data.optString("discount", "0.00");
                 if (discount != null && !discount.equalsIgnoreCase("null") && !discount.equals("0.00")) {
@@ -620,7 +693,20 @@ public class PayableHandler {
                 output.write(centerText("Phone: " + outletPhone).getBytes());
                 output.write("\n".getBytes());
                 String invoice = data.getString("order_no");
-                output.write(centerText("Invoice No: #" + invoice).getBytes());
+//                output.write(centerText("Invoice No: #" + invoice).getBytes());
+
+                output.write("Invoice No: ".getBytes());
+
+// Set large font for invoice value
+                byte[] largeFontOn = new byte[]{0x1B, 0x21, 0x30};  // Double width + height
+                byte[] fontReset = new byte[]{0x1B, 0x21, 0x00};    // Reset to normal font
+
+// Print invoice value in large font
+                output.write(largeFontOn);
+                output.write(("#"+invoice).getBytes());
+                output.write(fontReset);
+
+
                 output.write("\n".getBytes());
                 output.write(ESC_FONT_SIZE_RESET);
                 String type = data.getString("order_type");
@@ -645,12 +731,27 @@ public class PayableHandler {
                     output.write(("Address: " + data.getString("customer_address")+ ", "  + data.getString("postcode") + "\n").getBytes());
                     output.write(("Phone: " + data.getString("customer_phone") + "\n").getBytes());
                 }else{
+
+                    String address = data.optString("customer_address", "");
+                    String postcode = data.optString("postcode", "");
+                    String phone = data.optString("customer_phone", "");
+
                     output.write(ESC_FONT_SIZE_LARGE);
                     output.write(centerText("Takeaway").getBytes());
                     output.write(ESC_FONT_SIZE_RESET);
                     output.write("\n-------------------------------------------\n".getBytes());
                     output.write(("Date: " + data.getString("order_time") + "\n").getBytes());
                     output.write(("Customer: " + data.getString("customer_name") + "\n").getBytes());
+
+//                    if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) output.write(("Address: " + data.optString("customer_address", "") + ", " + data.getString("postcode") + "\n").getBytes());
+                    if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                        output.write(("Address: " + address + ", " + postcode + "\n").getBytes());
+                    }
+
+                    if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                        output.write(("Phone: " + phone + "\n").getBytes());
+                    }
+//                    if (!TextUtils.isEmpty(phone)) output.write(("Phone: " + data.optString("customer_phone", "") + "\n").getBytes());
                 }
 
             }
@@ -739,6 +840,11 @@ public class PayableHandler {
                     output.write(paddedLine(discountLabel, discount));
                 }
 
+                String bagFee = data.optString("bag_fee", "0.00");
+                if (bagFee != null && !bagFee.equalsIgnoreCase("null") && !bagFee.equals("0.00")) {
+                    output.write(paddedLine(bagFeeLabel, bagFee));
+                }
+
                 String deliveryFee = queryParams.getOrDefault("delfee", "0.00");
                 if (!"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
                     output.write(paddedLine("Delivery Fee", deliveryFee));
@@ -769,6 +875,11 @@ public class PayableHandler {
                 String bagFee = data.optString("bag_fee", "0.00");
                 if (bagFee != null && !bagFee.equalsIgnoreCase("null") && !bagFee.equals("0.00")) {
                     output.write(paddedLine(bagFeeLabel, bagFee));
+                }
+
+                String deliveryCharge = data.optString("delivery_charge", "0.00");
+                if (deliveryCharge != null && !deliveryCharge.equalsIgnoreCase("null") && !deliveryCharge.equals("0.00")) {
+                    output.write(paddedLine(delChargeLabel, deliveryCharge));
                 }
 
                 String discount = data.optString("discount", "0.00");
@@ -860,7 +971,19 @@ public class PayableHandler {
             }
             String invoice = data.optString("id", "");
             output.write(ESC_ALIGN_CENTER);
-            output.write(centerText("Online Invoice No: #" + invoice).getBytes());
+//            output.write(centerText("Online Invoice No: #" + invoice).getBytes());
+
+            output.write("Online Invoice No: ".getBytes());
+
+// Set large font for invoice value
+            byte[] largeFontOn = new byte[]{0x1B, 0x21, 0x30};  // Double width + height
+            byte[] fontReset = new byte[]{0x1B, 0x21, 0x00};    // Reset to normal font
+
+// Print invoice value in large font
+            output.write(largeFontOn);
+            output.write(("#"+invoice).getBytes());
+            output.write(fontReset);
+
             output.write("\n".getBytes());
             output.write(ESC_ALIGN_LEFT);
             String type = data.optString("order_type", "");
@@ -882,15 +1005,31 @@ public class PayableHandler {
             output.write("\n-------------------------------------------\n".getBytes());
             output.write(("Date: " + data.optString("order_time", "") + "\n").getBytes());
             output.write(("Customer: " + data.optString("firstname", "") + " " + data.optString("lastname", "") + "\n").getBytes());
+
+            String address = data.optString("address", "");
+            String postcode = data.optString("postcode", "");
+            String phone = data.optString("contactno", "");
+
+            if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                output.write(("Address: " + address + ", " + postcode + "\n").getBytes());
+            }
+
+            if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                output.write(("Phone: " + phone + "\n").getBytes());
+            }
+
+//            if (!TextUtils.isEmpty(address)) output.write(("Address: " + data.optString("address", "") + ", " + data.getString("postcode") + "\n").getBytes());
+//            if (!TextUtils.isEmpty(phone)) output.write(("Phone: " + data.optString("contactno", "") + "\n").getBytes());
+
             if (type.equalsIgnoreCase("dinein")) {
                 output.write(ESC_FONT_SIZE_LARGE);
                 output.write((data.optString("tableno", "") + "\n").getBytes());
                 output.write(ESC_FONT_SIZE_RESET);
                 output.write(("Seats: " + data.optString("table_seats", "") + "\n").getBytes());
-            } else if (type.equalsIgnoreCase("delivery")) {
+            }/* else if (type.equalsIgnoreCase("delivery")) {
                 output.write(("Address: " + data.optString("address", "") + ", " + data.getString("postcode") + "\n").getBytes());
                 output.write(("Phone: " + data.optString("contactno", "") + "\n").getBytes());
-            }
+            }*/
 
    /////////////
 
@@ -1022,6 +1161,12 @@ public class PayableHandler {
             if (!bagFee.equals("0.00")) {
                 output.write(paddedLine(bagFeeLabel, bagFee));
             }
+
+            String deliveryCharge = data.optString("delivery_charge", "0.00");
+            if (deliveryCharge != null && !deliveryCharge.equalsIgnoreCase("null") && !deliveryCharge.equals("0.00")) {
+                output.write(paddedLine(delChargeLabel, deliveryCharge));
+            }
+
             String discount = data.optString("discount", "0.00");
             if (!discount.equals("0.00")) {
                 output.write(paddedLine(discountLabel, discount));
@@ -1077,6 +1222,15 @@ public class PayableHandler {
             output.write(("Printed : " + printedTime + "\n\n").getBytes());
 
             output.write(new byte[]{0x1B, 0x64, 0x03});
+            int cashDrawerFeature = features != null ? features.optInt("cash_drawer", 0) : 0;
+            if (cashDrawerFeature == 1) {
+                int pin = 0;
+                if (restSettings != null && !restSettings.isNull("cash_drawer_pin")) {
+                    pin = restSettings.optInt("cash_drawer_pin", 0);
+                }
+                byte[] drawerPulse = new byte[]{0x1B, 0x70, (byte) (pin == 1 ? 0x01 : 0x00), 0x3C, (byte) 0xFF};
+                output.write(drawerPulse);
+            }
             output.write(new byte[]{0x1D, 0x56, 0x00});
 
         } catch (Exception e) {
@@ -1248,4 +1402,3 @@ public class PayableHandler {
         );
     }
 }
-

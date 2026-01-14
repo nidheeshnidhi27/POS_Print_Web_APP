@@ -122,6 +122,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 if (printerSetupArray.length() > 0) {
                                     int printerIdToUse = printerSetupArray.getInt(0);
@@ -134,22 +135,24 @@ public class BackgroundPrintService extends IntentService {
                                         if (printerId == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     JSONObject settings = response.has("settings") ? response.getJSONObject("settings") : new JSONObject();
+                                    JSONObject features = response.has("features") ? response.getJSONObject("features") : new JSONObject();
 
                                     PayableHandler payableHandler;
 
                                     // ✅ Pass the correct type to the constructor
                                     if (detailsObj instanceof JSONObject) {
-                                        payableHandler = new PayableHandler(this, payData, outlets, (JSONObject) detailsObj, printerIP, printerPort, type, restSettings, params);
+                                        payableHandler = new PayableHandler(this, payData, outlets, (JSONObject) detailsObj, printerIP, printerPort, type, restSettings, features, params, null);
                                     } else if (detailsObj instanceof JSONArray) {
-                                        payableHandler = new PayableHandler(this, payData, outlets, (JSONArray) detailsObj, printerIP, printerPort, type, restSettings, params, settings);
+                                        payableHandler = new PayableHandler(this, payData, outlets, (JSONArray) detailsObj, printerIP, printerPort, type, restSettings, features, params, settings);
                                     } else {
                                         throw new JSONException("Invalid type for details: must be JSONObject or JSONArray");
                                     }
@@ -161,14 +164,15 @@ public class BackgroundPrintService extends IntentService {
                                     byte[] formattedBytes = payableHandler.formatOnlinePayableBytes();
 //   TODO _NEW invoice print count based on api
                                     for (int i = 0; i < invoicePrintCopies; i++) {
-                                        /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
-                                        printConnection.execute();*/
-
-                                        PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-
-                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                            Log.d("PAY", "Callback: " + msg);
-                                        });
+                                        if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                            UsbPrintConnection usb = new UsbPrintConnection(this);
+                                            usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                        } else {
+                                            PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                            payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                                Log.d("PAY", "Callback: " + msg);
+                                            });
+                                        }
 
                                     }
 
@@ -186,6 +190,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
                                 String formattedText;
 
                                 if (printerSetupArray.length() > 0) {
@@ -199,12 +204,13 @@ public class BackgroundPrintService extends IntentService {
                                         if (printerId == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
 
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     JSONObject features = response.has("features") ? response.getJSONObject("features") : new JSONObject();
@@ -214,6 +220,7 @@ public class BackgroundPrintService extends IntentService {
 //                                    int finalPrinterPort = printerPort;
                                     String finalPrinterIP = printerIP;
                                     int finalPrinterPort = printerPort;
+                                    String finalPrinterType = printerType;
                                     new Thread(() -> {
                                         try {
                                             Bitmap logoBitmap = null;
@@ -245,14 +252,15 @@ public class BackgroundPrintService extends IntentService {
 
                                             //   TODO _NEW invoice print count based on api
                                             for (int i = 0; i < invoicePrintCopies; i++) {
-                                                /*PrintConnection_PAY printConnection = new PrintConnection_PAY(finalPrinterIP, finalPrinterPort, formattedBytes);
-                                                printConnection.execute();*/
-
-                                                PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-
-                                                payConn.printWithStatusCheck(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
-                                                    Log.d("PAY", "Callback: " + msg);
-                                                });
+                                                if ("usb".equalsIgnoreCase(finalPrinterType) || "windows".equalsIgnoreCase(finalPrinterType) || "window".equalsIgnoreCase(finalPrinterType) || finalPrinterIP.trim().isEmpty()) {
+                                                    UsbPrintConnection usb = new UsbPrintConnection(this);
+                                                    usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                                } else {
+                                                    PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                                    payConn.printWithStatusCheck(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
+                                                        Log.d("PAY", "Callback: " + msg);
+                                                    });
+                                                }
                                             }
 
                                         } catch (Exception e) {
@@ -275,6 +283,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
                                 String formattedText;
 
                                 if (printerSetupArray.length() > 0) {
@@ -288,12 +297,13 @@ public class BackgroundPrintService extends IntentService {
                                         if (printerId == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
 
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     PayableHandler payableHandler = new PayableHandler(this, payData, outlets, details, printerIP, printerPort, type, restSettings, params);
@@ -301,11 +311,15 @@ public class BackgroundPrintService extends IntentService {
                                     byte[] formattedBytes = payableHandler.formatPayableSplitBytes(); // Now returns byte[]
                                     /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                     printConnection.execute();*/
-                                    PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-
-                                    payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                        Log.d("PAY", "Callback: " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                    } else {
+                                        PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            Log.d("PAY", "Callback: " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
@@ -321,6 +335,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
                                 if (printerSetupArray.length() > 0) {
                                     int printerIdToUse = printerSetupArray.getInt(0);
                                     for (int i = 0; i < printers.length(); i++) {
@@ -328,12 +343,13 @@ public class BackgroundPrintService extends IntentService {
                                         if (printer.getInt("id") == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     JSONObject restSettings = response.has("rest_settings")
                                             ? response.getJSONObject("rest_settings")
                                             : new JSONObject();
@@ -362,14 +378,17 @@ public class BackgroundPrintService extends IntentService {
                                         /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                         printConnection.execute();*/
 
-                                        PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                        if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                            UsbPrintConnection usb = new UsbPrintConnection(this);
+                                            usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                        } else {
+                                            PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                            payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                                Log.d("PAY", "Callback: " + msg);
+                                            });
+                                        }
 
-                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                            Log.d("PAY", "Callback: " + msg);
-                                        });
-
-                                        // Optional: small delay between prints to avoid printer buffer issues
-                                        Thread.sleep(300);
+                                        Thread.sleep(50);
                                     }
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
@@ -385,6 +404,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
                                 String formattedText;
 
                                 if (printerSetupArray.length() > 0) {
@@ -399,12 +419,13 @@ public class BackgroundPrintService extends IntentService {
                                         if (printerId == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
 
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     PayableHandler payableHandler = new PayableHandler(this, payData, outlets, details, printerIP, printerPort, type, restSettings, params);
@@ -412,11 +433,15 @@ public class BackgroundPrintService extends IntentService {
                                     byte[] formattedBytes = payableHandler.formatPayableBytes(); // Now returns byte[]
                                     /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                     printConnection.execute();*/
-                                    PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-
-                                    payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                        Log.d("PAY", "Callback: " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                    } else {
+                                        PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            Log.d("PAY", "Callback: " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
@@ -433,6 +458,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 if (printerSetupArray.length() > 0) {
                                     int printerIdToUse = printerSetupArray.getInt(0);
@@ -444,12 +470,13 @@ public class BackgroundPrintService extends IntentService {
                                         if (printerId == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     PettyCashHandler pettyCashHandler = new PettyCashHandler(
                                             this, payData, outlets, details, printerIP, printerPort, type, restSettings, params
@@ -460,11 +487,15 @@ public class BackgroundPrintService extends IntentService {
                                     /*PrintConnection printConnection = new PrintConnection(this,printerIP, printerPort, formattedText);
                                     printConnection.execute();*/
 
-                                    PrintConnection pc = new PrintConnection(this);
-
-                                    pc.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
-                                        Log.d("PrintService", type + " → " + success + " / " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printText(formattedText, (success, msg) -> Log.d("PrintService_USB", type + " → " + success + " / " + msg));
+                                    } else {
+                                        PrintConnection pc = new PrintConnection(this);
+                                        pc.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
+                                            Log.d("PrintService", type + " → " + success + " / " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
@@ -478,6 +509,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 if (printerSetupArray.length() > 0) {
                                     int printerIdToUse = printerSetupArray.getInt(0);
@@ -486,21 +518,26 @@ public class BackgroundPrintService extends IntentService {
                                         if (printer.getInt("id") == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     PettyCashHandler pettyCashHandler = new PettyCashHandler(this, pettyCashData, outlets, null, printerIP, printerPort, type, restSettings, params);
                                     String formattedBytes = pettyCashHandler.formatTodayPettyCashPrint(pettyCashData);
                                     //                                    todo _hide 02/12
 //                                    new PrintConnection(this, printerIP, printerPort, formattedBytes).execute();
-                                    PrintConnection pc = new PrintConnection(this);
-
-                                    pc.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                        Log.d("PrintService", type + " → " + success + " / " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printText(formattedBytes, (success, msg) -> Log.d("PrintService_USB", type + " → " + success + " / " + msg));
+                                    } else {
+                                        PrintConnection pc = new PrintConnection(this);
+                                        pc.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            Log.d("PrintService", type + " → " + success + " / " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for print_today_petty_cash.");
@@ -512,6 +549,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 if (printerSetupArray.length() > 0) {
                                     int printerIdToUse = printerSetupArray.getInt(0);
@@ -520,13 +558,14 @@ public class BackgroundPrintService extends IntentService {
                                         if (printer.getInt("id") == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
                                 }
 
                                 if (!printerIP.isEmpty()) {
-                                    new MainsAwayHandler(this, payData, printerIP, printerPort).printMainsAway();
+                                    new MainsAwayHandler(this, payData, printerIP, printerPort, printerType).printMainsAway();
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for mainsaway.");
                                 }
@@ -537,6 +576,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONArray printerSetupArray = response.getJSONArray("printersetup");
@@ -548,6 +588,7 @@ public class BackgroundPrintService extends IntentService {
                                         if (printer.getInt("id") == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
@@ -555,15 +596,20 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printData = ReportHandler.buildDailySummaryReport(response, "daily_summary_report");
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     //                                    todo _hide 02/12
                                     /*PrintConnection printConnection = new PrintConnection(this, printerIP, printerPort, printData);
                                     printConnection.execute();*/
 
-                                    PrintConnection pc = new PrintConnection(this);
-                                    pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
-                                        Log.d("DailyReportPrint", success + " → " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printText(printData, (success, msg) -> Log.d("DailyReportPrint_USB", success + " → " + msg));
+                                    } else {
+                                        PrintConnection pc = new PrintConnection(this);
+                                        pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
+                                            Log.d("DailyReportPrint", success + " → " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for mainsaway.");
@@ -575,6 +621,7 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printerIP = "";
                                 int printerPort = 9100;
+                                String printerType = "network";
 
                                 JSONArray printers = response.getJSONArray("printers");
                                 JSONArray printerSetupArray = response.getJSONArray("printersetup");
@@ -586,6 +633,7 @@ public class BackgroundPrintService extends IntentService {
                                         if (printer.getInt("id") == printerIdToUse) {
                                             printerIP = printer.optString("ip", "");
                                             printerPort = Integer.parseInt(printer.optString("port", "9100"));
+                                            printerType = printer.optString("type", "network");
                                             break;
                                         }
                                     }
@@ -593,15 +641,20 @@ public class BackgroundPrintService extends IntentService {
 
                                 String printData = ReportHandler.buildOnlineReport(response, type);
 
-                                if (!printerIP.isEmpty()) {
+                                if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     //                                    todo _hide 02/12
                                     /*PrintConnection printConnection = new PrintConnection(this, printerIP, printerPort, printData);
                                     printConnection.execute();*/
 
-                                    PrintConnection pc = new PrintConnection(this);
-                                    pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
-                                        Log.d("OnlineReportPrint", type + " → " + success + " / " + msg);
-                                    });
+                                    if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                                        UsbPrintConnection usb = new UsbPrintConnection(this);
+                                        usb.printText(printData, (success, msg) -> Log.d("OnlineReportPrint_USB", type + " → " + success + " / " + msg));
+                                    } else {
+                                        PrintConnection pc = new PrintConnection(this);
+                                        pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
+                                            Log.d("OnlineReportPrint", type + " → " + success + " / " + msg);
+                                        });
+                                    }
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found for online_report.");

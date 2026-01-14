@@ -42,8 +42,8 @@ public class PrintConnection_PAY {
 
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 5000);
-                socket.setSoTimeout(600);
+                socket.connect(new InetSocketAddress(ip, port), 1500);
+                socket.setSoTimeout(200);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -51,7 +51,7 @@ public class PrintConnection_PAY {
                 // 1) Drain old bytes
                 drainWithTimeout(input);
 
-                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 800, 300);
                 if (!st.online) {
                     message = "Printer offline (PAY)";
                     showNotification(message);
@@ -67,8 +67,8 @@ public class PrintConnection_PAY {
                     return;
                 }
                 if (st.busy) {
-                    try { Thread.sleep(500); } catch (InterruptedException ignored) {}
-                    st = PrinterStatusHelper.queryBasic(ip, port, 1000, 1000);
+                    try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                    st = PrinterStatusHelper.queryBasic(ip, port, 800, 300);
                     if (st.busy) {
                         message = "Printer " + st.status + " (PAY)";
                         showNotification(message);

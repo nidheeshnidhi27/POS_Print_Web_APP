@@ -1,7 +1,5 @@
 package com.joopos.posprint;
 
-import static androidx.fragment.app.FragmentManager.TAG;
-
 import android.content.Context;
 import android.icu.text.SimpleDateFormat;
 import android.text.TextUtils;
@@ -19,6 +17,7 @@ import java.util.Map;
 
 public class KOTHandler {
 
+    private static final String TAG = "KOTHandler";
     Context context;
     JSONObject response, details;
 
@@ -74,6 +73,7 @@ public class KOTHandler {
 
                 String ip = printerDetails.optString("ip");
                 int port = Integer.parseInt(printerDetails.optString("port", "9100"));
+                String pType = printerDetails.optString("type", "network");
 
                 // ------------------------------
                 //  BUILD KOT PRINT TEXT
@@ -90,11 +90,21 @@ public class KOTHandler {
                 final int finalPrinterId = printerId;
                 for (int i = 0; i < kotCopies; i++) {
                     final int finalCopyNo = i + 1;
-                    PrintConnection printer = new PrintConnection(context);
-                    printer.printWithStatusCheck(ip, port, textToPrint, (success, msg) -> {
-                        Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
-                    });
-                    try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                    if ("usb".equalsIgnoreCase(pType)
+                            || "windows".equalsIgnoreCase(pType)
+                            || "window".equalsIgnoreCase(pType)
+                            || ip == null || ip.trim().isEmpty()) {
+                        UsbPrintConnection usb = new UsbPrintConnection(context);
+                        usb.printText(textToPrint, (success, msg) -> {
+                            Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " USB Success=" + success + " | " + msg);
+                        });
+                    } else {
+                        PrintConnection printer = new PrintConnection(context);
+                        printer.printFast(ip, port, textToPrint, (success, msg) -> {
+                            Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
+                        });
+                    }
+                    try { Thread.sleep(15); } catch (InterruptedException ignored) {}
                 }
             }
 
@@ -126,12 +136,23 @@ public class KOTHandler {
             String orderTime = orderDetails.optString("order_time", "");
             String waiter = orderDetails.optString("waiter_name", "");
             String customer = orderDetails.optString("customer_name", "");
+            String phone = orderDetails.optString("customer_phone", "");
+            String address = orderDetails.optString("customer_address", "");
+            String postcode = orderDetails.optString("postcode", "");
             String tableno = orderDetails.optString("tableno", "");
             int seats = orderDetails.optInt("table_seats", 0);
 
             formattedText.append("\nDate: ").append(orderTime)
-                    .append("\nCustomer: ").append(customer)
-                    .append("\nServed by: ").append(waiter);
+                    .append("\nCustomer: ").append(customer);
+            if (address != null && !address.trim().isEmpty() && !"null".equalsIgnoreCase(address)) {
+                formattedText.append("\nAddress: ").append(address).append(", ").append(postcode);
+            }
+
+// Show phone ONLY if valid
+            if (phone != null && !phone.trim().isEmpty() && !"null".equalsIgnoreCase(phone)) {
+                formattedText.append("\nPhone: ").append(phone);
+            }
+            formattedText.append("\nServed by: ").append(waiter);
 
             if (type.equals("dinein")) {
                 if (!tableno.equals("null") && !tableno.isEmpty()) {

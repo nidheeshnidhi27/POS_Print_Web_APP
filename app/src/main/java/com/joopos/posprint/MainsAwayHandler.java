@@ -20,12 +20,14 @@ public class MainsAwayHandler {
     private final JSONObject data;
     private final String printerIP;
     private final int printerPort;
+    private final String printerType;
 
-    public MainsAwayHandler(Context context, JSONObject data, String printerIP, int printerPort) {
+    public MainsAwayHandler(Context context, JSONObject data, String printerIP, int printerPort, String printerType) {
         this.context = context;
         this.data = data;
         this.printerIP = printerIP;
         this.printerPort = printerPort;
+        this.printerType = printerType;
     }
 
     public void printMainsAway() {
@@ -81,13 +83,17 @@ public class MainsAwayHandler {
 
         String finalBytes = String.valueOf(text);
         try {
-            //                                    todo _hide 02/12
-//            new PrintConnection(context, printerIP, printerPort, finalBytes).execute();
-            PrintConnection pc = new PrintConnection(context);
-
-            pc.printWithStatusCheck(printerIP, printerPort, finalBytes, (success, msg) -> {
-                Log.d("MainsAway", "Print Status: " + success + " → " + msg);
-            });
+            if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
+                UsbPrintConnection usb = new UsbPrintConnection(context);
+                usb.printText(finalBytes, (success, msg) -> {
+                    Log.d("MainsAway_USB", "Print Status: " + success + " → " + msg);
+                });
+            } else {
+                PrintConnection pc = new PrintConnection(context);
+                pc.printWithStatusCheck(printerIP, printerPort, finalBytes, (success, msg) -> {
+                    Log.d("MainsAway", "Print Status: " + success + " → " + msg);
+                });
+            }
         } catch (Exception e) {
             Log.e("MainsAwayPrint", "Error while printing mains away", e);
         }
