@@ -1231,7 +1231,7 @@ public class PayableHandler {
                 byte[] drawerPulse = new byte[]{0x1B, 0x70, (byte) (pin == 1 ? 0x01 : 0x00), 0x3C, (byte) 0xFF};
                 output.write(drawerPulse);
             }
-            output.write(new byte[]{0x1D, 0x56, 0x00});
+//            output.write(new byte[]{0x1D, 0x56, 0x00});
 
         } catch (Exception e) {
             Log.e(TAG, "Error formatting online payable print", e);

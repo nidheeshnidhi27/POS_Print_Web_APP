@@ -169,8 +169,8 @@ public class BackgroundPrintService extends IntentService {
                                             usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                         } else {
                                             PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                            payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
-                                                Log.d("PAY", "Callback: " + msg);
+                                            payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                                Log.d("PAY_FAST", "Callback: " + msg);
                                             });
                                         }
 
@@ -682,9 +682,9 @@ public class BackgroundPrintService extends IntentService {
             };
 
             request.setRetryPolicy(new DefaultRetryPolicy(
-                    10000, // 10 seconds timeout
-                    3,     // max retries
-                    1.5f   // backoff multiplier
+                    3000, // 3 seconds timeout
+                    0,    // no retries to avoid delay
+                    1.0f  // no backoff
             ));
             queue.add(request);
         } catch (Exception e) {

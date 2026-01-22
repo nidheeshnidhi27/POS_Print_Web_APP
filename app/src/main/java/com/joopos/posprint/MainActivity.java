@@ -23,6 +23,7 @@ import android.webkit.ConsoleMessage;
 import android.net.http.SslError;
 import java.net.URLEncoder;
 import android.view.View;
+import android.view.WindowManager;
 import java.util.HashMap;
 import java.util.Map;
 import androidx.appcompat.app.AlertDialog;
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupWebView() {
         setContentView(R.layout.activity_main);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         webView = findViewById(R.id.webView);
         urlInput = findViewById(R.id.urlInput);
         goButton = findViewById(R.id.goButton);
@@ -78,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setSupportZoom(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
@@ -88,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
         }
         String baseUA = settings.getUserAgentString();
         settings.setUserAgentString(baseUA + " Android");
+        webView.setKeepScreenOn(true);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -140,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 String notifPolyfillEarly =
-                        "(function(){try{if(typeof window.Notification==='undefined'){var N=function(t,o){};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}}catch(e){}})();";
+                        "(function(){try{var R=function(){try{if(window.AndroidBell&&AndroidBell.ring){AndroidBell.ring();}}catch(e){}};if(typeof window.Notification==='undefined'){var N=function(t,o){R();};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}else{var _N=window.Notification;window.Notification=function(t,o){R();return new _N(t,o)};window.Notification.requestPermission=function(cb){return _N.requestPermission(cb)}}}catch(e){}})();";
                 view.evaluateJavascript(notifPolyfillEarly, null);
             }
             @Override
@@ -158,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 String notifPolyfill =
-                        "(function(){try{if(typeof window.Notification==='undefined'){var N=function(t,o){};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}}catch(e){}})();";
+                        "(function(){try{var R=function(){try{if(window.AndroidBell&&AndroidBell.ring){AndroidBell.ring();}}catch(e){}};if(typeof window.Notification==='undefined'){var N=function(t,o){R();};N.permission='granted';N.requestPermission=function(cb){var r='granted';if(cb)cb(r);return Promise.resolve(r);};window.Notification=N;}else{var _N=window.Notification;window.Notification=function(t,o){R();return new _N(t,o)};window.Notification.requestPermission=function(cb){return _N.requestPermission(cb)}}}catch(e){}})();";
                 view.evaluateJavascript(notifPolyfill, null);
             }
         });
@@ -256,6 +260,7 @@ public class MainActivity extends AppCompatActivity {
             headers.put("User-Agent", webView.getSettings().getUserAgentString());
             webView.loadUrl(saved, headers);
         }
+        webView.addJavascriptInterface(new AndroidBell(this), "AndroidBell");
 
         urlInput.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {

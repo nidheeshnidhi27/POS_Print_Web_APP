@@ -14,6 +14,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -24,7 +26,7 @@ public class PrintConnection_PAY {
     }
 
     private static final String TAG = "PrintConnection_PAY";
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final Map<String, ExecutorService> PR_EXEC = new ConcurrentHashMap<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private Context context;
@@ -33,8 +35,13 @@ public class PrintConnection_PAY {
         this.context = context.getApplicationContext();
     }
 
+    private static ExecutorService execFor(String key) {
+        return PR_EXEC.computeIfAbsent(key, k -> Executors.newSingleThreadExecutor());
+    }
+
     public void printWithStatusCheck(String ip, int port, byte[] printableData, Callback callback) {
-        executor.execute(() -> {
+        String key = ip + ":" + port;
+        execFor(key).execute(() -> {
 
             boolean success = false;
             String message = "Unknown error";
@@ -106,6 +113,45 @@ public class PrintConnection_PAY {
         });
     }
 
+    public void printFastBytes(String ip, int port, byte[] printableData, Callback callback) {
+        String key = ip + ":" + port;
+        execFor(key).execute(() -> {
+            boolean success = false;
+            String message = "Unknown error";
+            Socket socket = null;
+            try {
+                socket = new Socket();
+                socket.connect(new InetSocketAddress(ip, port), 400);
+                socket.setSoTimeout(60);
+                InputStream input = socket.getInputStream();
+                OutputStream output = socket.getOutputStream();
+                drainWithTimeout(input);
+                output.write(new byte[]{0x1B, 0x40}); // init
+                output.flush();
+                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                output.write(printableData);
+                output.flush();
+                try { Thread.sleep(60); } catch (InterruptedException ignored) {}
+                if (!endsWithCut(printableData)) {
+                    output.write(new byte[]{0x1B, 0x64, 0x02}); // feed 2 lines
+                    output.flush();
+                    try { Thread.sleep(60); } catch (InterruptedException ignored) {}
+                    output.write(new byte[]{0x1D, 0x56, 0x00}); // full cut
+                    output.flush();
+                }
+                message = "Printed fast (PAY)";
+                success = true;
+            } catch (Exception e) {
+                message = "Fast print failed (PAY): " + e.getMessage();
+                showNotification(message);
+                Log.e(TAG, message, e);
+            } finally {
+                safeClose(socket);
+            }
+            post(callback, success, message);
+        });
+    }
+
     // -------- Helper Methods --------
 
     private void post(Callback cb, boolean success, String msg) {
@@ -154,5 +200,18 @@ public class PrintConnection_PAY {
         StringBuilder sb = new StringBuilder();
         for (byte b : data) sb.append(String.format("%02X ", b));
         return sb.toString();
+    }
+
+    private boolean endsWithCut(byte[] data) {
+        if (data == null || data.length < 2) return false;
+        int start = Math.max(0, data.length - 16);
+        for (int i = start; i <= data.length - 2; i++) {
+            int b0 = data[i] & 0xFF;
+            int b1 = data[i + 1] & 0xFF;
+            if (b0 == 0x1D && b1 == 0x56) {
+                return true;
+            }
+        }
+        return false;
     }
 }

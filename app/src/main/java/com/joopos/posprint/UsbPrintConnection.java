@@ -29,7 +29,7 @@ public class UsbPrintConnection {
     private static final String TAG = "UsbPrintConnection";
     private static final String ACTION_USB_PERMISSION = "com.joopos.posprint.USB_PERMISSION";
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final ExecutorService EXEC = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Context context;
 
@@ -38,7 +38,7 @@ public class UsbPrintConnection {
     }
 
     public void printText(String textToPrint, Callback callback) {
-        executor.execute(() -> {
+        EXEC.execute(() -> {
             boolean success = false;
             String message = "Unknown error";
             UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -119,7 +119,7 @@ public class UsbPrintConnection {
     }
 
     public void printBytes(byte[] data, Callback callback) {
-        executor.execute(() -> {
+        EXEC.execute(() -> {
             boolean success = false;
             String message = "Unknown error";
             UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -162,8 +162,16 @@ public class UsbPrintConnection {
                     conn.close();
                     return;
                 }
+                byte[] init = new byte[]{0x1B, 0x40};
+                conn.bulkTransfer(outEp, init, init.length, 500);
                 int r = conn.bulkTransfer(outEp, data, data.length, 2000);
                 if (r < 0) throw new RuntimeException("bulkTransfer data failed");
+                if (!endsWithCut(data)) {
+                    byte[] feed = new byte[]{0x1B, 0x64, 0x02};
+                    byte[] cut = new byte[]{0x1D, 0x56, 0x00};
+                    conn.bulkTransfer(outEp, feed, feed.length, 500);
+                    conn.bulkTransfer(outEp, cut, cut.length, 500);
+                }
                 success = true;
                 message = "USB bytes printed";
             } catch (Exception e) {
@@ -178,7 +186,7 @@ public class UsbPrintConnection {
     }
 
     public void printDrawerAndText(byte[] drawerPulse, String textToPrint, Callback callback) {
-        executor.execute(() -> {
+        EXEC.execute(() -> {
             boolean success = false;
             String message = "Unknown error";
             UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -258,6 +266,19 @@ public class UsbPrintConnection {
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    private boolean endsWithCut(byte[] data) {
+        if (data == null || data.length < 2) return false;
+        int start = Math.max(0, data.length - 16);
+        for (int i = start; i <= data.length - 2; i++) {
+            int b0 = data[i] & 0xFF;
+            int b1 = data[i + 1] & 0xFF;
+            if (b0 == 0x1D && b1 == 0x56) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isPrinterLike(UsbDevice d) {
