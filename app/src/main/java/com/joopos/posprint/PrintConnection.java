@@ -55,8 +55,8 @@ public class PrintConnection {
             Socket socket = null;
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 1500);
-                socket.setSoTimeout(150);
+                socket.connect(new InetSocketAddress(ip, port), 2500);
+                socket.setSoTimeout(250);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -143,12 +143,10 @@ public class PrintConnection {
 
             } catch (SocketTimeoutException ste) {
                 message = "Printer read timed out (possible slow response)";
-                showNotification(message);
                 Log.e(TAG, "SocketTimeoutException", ste);
                 success = false;
             } catch (Exception e) {
                 message = "Printing failed: " + e.getMessage();
-                showNotification(message);
                 Log.e(TAG, "Printing exception", e);
                 success = false;
             } finally {
@@ -167,7 +165,7 @@ public class PrintConnection {
                 Socket socket = null;
                 try {
                     socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 400);
+                socket.connect(new InetSocketAddress(ip, port), 300);
                 socket.setSoTimeout(60);
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -186,7 +184,6 @@ public class PrintConnection {
                 success = true;
             } catch (Exception e) {
                 message = "Fast print failed: " + e.getMessage();
-                showNotification(message);
                 Log.e(TAG, message, e);
             } finally {
                 safeClose(socket);

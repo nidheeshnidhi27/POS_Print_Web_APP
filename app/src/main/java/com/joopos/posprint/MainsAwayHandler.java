@@ -90,7 +90,7 @@ public class MainsAwayHandler {
                 });
             } else {
                 PrintConnection pc = new PrintConnection(context);
-                pc.printWithStatusCheck(printerIP, printerPort, finalBytes, (success, msg) -> {
+                pc.printFast(printerIP, printerPort, finalBytes, (success, msg) -> {
                     Log.d("MainsAway", "Print Status: " + success + " → " + msg);
                 });
             }

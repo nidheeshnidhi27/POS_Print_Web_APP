@@ -450,13 +450,13 @@ public class PayableHandler {
                     output.write(paddedLine(tipAmountLabel, tipAmount));
                 }
                 String serviceFee = queryParams.getOrDefault("servicefee", "0.00");
-                if (serviceFee != null && !serviceFee.equalsIgnoreCase("null") && !serviceFee.equals("0.00")) {
+                if (serviceFee != null && !serviceFee.equalsIgnoreCase("null") && !serviceFee.equalsIgnoreCase("undefined") && !serviceFee.equals("0.00")) {
                     output.write(paddedLine("Service Charge", serviceFee));
                 }
 
                 String discount = queryParams.getOrDefault("discount", "0.00");
 //                if (!"0".equals(discount) && !"".equals(discount)) {
-                if (discount != null && !discount.equalsIgnoreCase("null") && !discount.equals("0.00") && !"0".equals(discount) && !"".equals(discount)) {
+                if (discount != null && !discount.equalsIgnoreCase("null") && !discount.equalsIgnoreCase("undefined") && !discount.equals("0.00") && !"0".equals(discount) && !"".equals(discount)) {
                     output.write(paddedLine(discountLabel, discount));
                 }
                 String bagFee = data.optString("bag_fee", "0.00");
@@ -465,7 +465,7 @@ public class PayableHandler {
                 }
 
                 String deliveryFee = queryParams.getOrDefault("delfee", "0.00");
-                if (deliveryFee != null && !deliveryFee.equalsIgnoreCase("null") && !deliveryFee.equals("0.00") && !"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
+                if (deliveryFee != null && !deliveryFee.equalsIgnoreCase("null") && !deliveryFee.equalsIgnoreCase("undefined") && !deliveryFee.equals("0.00") && !"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
 //                if (!"0".equals(deliveryFee) && !"".equals(deliveryFee)) {
                     output.write(paddedLine("Delivery Fee", deliveryFee));
                 }

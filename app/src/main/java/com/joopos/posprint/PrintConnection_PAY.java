@@ -49,8 +49,8 @@ public class PrintConnection_PAY {
 
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 1500);
-                socket.setSoTimeout(200);
+                socket.connect(new InetSocketAddress(ip, port), 2500);
+                socket.setSoTimeout(300);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -58,7 +58,7 @@ public class PrintConnection_PAY {
                 // 1) Drain old bytes
                 drainWithTimeout(input);
 
-                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 800, 300);
+                PrinterStatusHelper.Status st = PrinterStatusHelper.queryBasic(ip, port, 1200, 500);
                 if (!st.online) {
                     message = "Printer offline (PAY)";
                     showNotification(message);
@@ -99,11 +99,9 @@ public class PrintConnection_PAY {
 
             } catch (SocketTimeoutException ste) {
                 message = "Timeout Error (PAY)";
-                showNotification(message);
                 Log.e(TAG, "READ TIMEOUT", ste);
             } catch (Exception e) {
                 message = "Failed (PAY): " + e.getMessage();
-                showNotification(message);
                 Log.e(TAG, "ERROR", e);
             } finally {
                 safeClose(socket);

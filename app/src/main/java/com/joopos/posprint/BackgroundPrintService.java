@@ -90,7 +90,7 @@ public class BackgroundPrintService extends IntentService {
 
                 Log.d("PrintService", "Final API URL: " + baseUrl);
 
-            RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+            RequestQueue queue = RequestQueueSingleton.get(getApplicationContext());
             JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, baseUrl, null,
                     response -> {
                         try {
@@ -257,7 +257,7 @@ public class BackgroundPrintService extends IntentService {
                                                     usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                                 } else {
                                                     PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                                    payConn.printWithStatusCheck(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
+                                                    payConn.printFastBytes(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
                                                         Log.d("PAY", "Callback: " + msg);
                                                     });
                                                 }
@@ -316,7 +316,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                     } else {
                                         PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                        payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                             Log.d("PAY", "Callback: " + msg);
                                         });
                                     }
@@ -383,7 +383,7 @@ public class BackgroundPrintService extends IntentService {
                                             usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                         } else {
                                             PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                            payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                                 Log.d("PAY", "Callback: " + msg);
                                             });
                                         }
@@ -438,7 +438,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                     } else {
                                         PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                        payConn.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                        payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                             Log.d("PAY", "Callback: " + msg);
                                         });
                                     }
@@ -492,7 +492,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printText(formattedText, (success, msg) -> Log.d("PrintService_USB", type + " → " + success + " / " + msg));
                                     } else {
                                         PrintConnection pc = new PrintConnection(this);
-                                        pc.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
+                                        pc.printFast(printerIP, printerPort, formattedText, (success, msg) -> {
                                             Log.d("PrintService", type + " → " + success + " / " + msg);
                                         });
                                     }
@@ -534,7 +534,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printText(formattedBytes, (success, msg) -> Log.d("PrintService_USB", type + " → " + success + " / " + msg));
                                     } else {
                                         PrintConnection pc = new PrintConnection(this);
-                                        pc.printWithStatusCheck(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                        pc.printFast(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                             Log.d("PrintService", type + " → " + success + " / " + msg);
                                         });
                                     }
@@ -606,7 +606,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printText(printData, (success, msg) -> Log.d("DailyReportPrint_USB", success + " → " + msg));
                                     } else {
                                         PrintConnection pc = new PrintConnection(this);
-                                        pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
+                                        pc.printFast(printerIP, printerPort, printData, (success, msg) -> {
                                             Log.d("DailyReportPrint", success + " → " + msg);
                                         });
                                     }
@@ -651,7 +651,7 @@ public class BackgroundPrintService extends IntentService {
                                         usb.printText(printData, (success, msg) -> Log.d("OnlineReportPrint_USB", type + " → " + success + " / " + msg));
                                     } else {
                                         PrintConnection pc = new PrintConnection(this);
-                                        pc.printWithStatusCheck(printerIP, printerPort, printData, (success, msg) -> {
+                                        pc.printFast(printerIP, printerPort, printData, (success, msg) -> {
                                             Log.d("OnlineReportPrint", type + " → " + success + " / " + msg);
                                         });
                                     }

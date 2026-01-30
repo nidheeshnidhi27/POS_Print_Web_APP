@@ -1,5 +1,6 @@
 package com.joopos.posprint;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.icu.text.SimpleDateFormat;
 import android.util.Log;
@@ -12,12 +13,13 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 
-public class ReportHandler {
+public class  ReportHandler {
     private static final String TAG = "ReportHandler";
     private static final String ESC_FONT_BOLD_ON = "\u001B\u0045\u0001";
     private static final String ESC_FONT_BOLD_OFF = "\u001B\u0045\u0000";
     private static final String ESC_FONT_SIZE_LARGE = "\u001D\u0021\u0011";  // Double width + height
     private static final String ESC_FONT_RESET = "\u001D\u0021\u0000";
+    @SuppressLint("DefaultLocale")
     public static String buildDailySummaryReport(JSONObject response, String type) {
         StringBuilder builder = new StringBuilder();
 
@@ -31,9 +33,10 @@ public class ReportHandler {
                 .append(ESC_FONT_RESET).append(ESC_FONT_BOLD_OFF)
                 .append("--------------------------------------------\n");
 
-        // Booking / Guests (BOLD + LARGE)
-        builder.append(ESC_FONT_BOLD_ON);
-        builder.append("TOTAL BOOKING : ").append(response.optInt("total_bookings", 0)).append("\n\n");
+        /* old summary report
+          builder.append(ESC_FONT_BOLD_ON);
+        builder.append("OPENING BALANCE : ").append(response.optInt("register_opening_balance", 0)).append("\n");
+        builder.append("BOOKINGS : ").append(response.optInt("total_bookings", 0)).append("\n\n");
         builder.append("TOTAL GUEST : ").append(response.optInt("booking_guests", 0)).append("\n\n");
         builder.append("TOTAL DINE-IN CUSTOMER: ").append(response.optInt("total_persons", 0)).append("\n\n");
         builder.append(ESC_FONT_BOLD_OFF);
@@ -59,6 +62,71 @@ public class ReportHandler {
         builder.append("Total Dry Sales Amount : ").append(response.optString("totalFoodSales", "0.00")).append("\n\n");
         builder.append("Total Wet Sales Amount : ").append(response.optString("totalDrinkSales", "0.00")).append("\n\n");
         builder.append(ESC_FONT_BOLD_OFF);
+         */
+//new summary report bells
+        // Booking / Guests (BOLD + LARGE)
+//        builder.append(ESC_FONT_BOLD_ON);
+        builder.append("Opening Balance : ").append(response.optInt("register_opening_balance", 0)).append("\n");
+        builder.append("Bookings : ").append(response.optInt("total_bookings", 0)).append(" | ").
+                append("Guests : ").append(response.optInt("booking_guests", 0)).append("\n");
+        builder.append("Dine-In Persons : ").append(response.optInt("total_persons", 0)).append("\n");
+//        builder.append(ESC_FONT_BOLD_OFF);
+
+        // Orders (BOLD + LARGE)
+//        builder.append(ESC_FONT_BOLD_ON);
+        builder.append("In-Store Orders : ").append(response.optInt("total_offline_orders", 0))
+                .append(" (Cash: ").append(response.optInt("offline_cash_orders", 0))
+                .append(", Card: ").append(response.optInt("offline_card_orders", 0)).append(")").append("\n");
+        builder.append("Online Orders : ").append(response.optInt("total_online_orders", 0))
+                .append("(Cash: ").append(response.optInt("total_online_cash_orders", 0))
+                .append(", Card: ").append(response.optInt("total_online_card_orders", 0)).append(")").append("\n");
+
+//        builder.append("Total Cash : ").append(String.format("%.2f", response.optDouble("total_cash_amount", 0))).append("\n");
+
+        builder.append("Total Cash : ")
+                .append(String.format("%.2f", getAmount(response, "total_cash_amount")))
+                .append("\n");
+
+        builder.append("Petty Cash : ").append(String.format("%.2f", response.optDouble("total_petty_cash", 0))).append(" | ")
+                .append("Tips : ").append(String.format("%.2f", response.optDouble("total_tips", 0))).append("\n");
+        builder.append("Cash Present : ").append(String.format("%.2f", response.optDouble("total_cash_present", 0))).append("\n");
+
+        /*builder.append("Total Card : ").append(String.format("%.2f", response.optDouble("total_card_amount", 0)))
+                .append(" (Online: ").append(String.format("%.2f", response.optDouble("total_online_card_amount", 0)))
+                .append(", In-Store: ").append(String.format("%.2f", response.optDouble("total_offline_card_amount", 0))).append(")").append("\n");*/
+
+        builder.append("Total Card : ")
+                .append(String.format("%.2f", getAmount(response, "total_card_amount")))
+                .append(" (Online: ")
+                .append(String.format("%.2f", getAmount(response, "total_online_card_amount")))
+                .append(", In-Store: ")
+                .append(String.format("%.2f", getAmount(response, "total_offline_card_amount")))
+                .append(")\n");
+
+
+        builder.append("Dry Sales : ").append(response.optString("totalFoodSales", "0.00")).append(" | ")
+                .append("Wet Sales : ").append(response.optString("totalDrinkSales", "0.00")).append("\n");
+//        builder.append("Other Sales : ").append(String.format("%.2f", response.optDouble("totalOtherSales", 0))).append("\n");
+//        builder.append("Total Discount : ").append(String.format("%.2f", response.optDouble("total_discount", 0))).append("\n");
+
+        builder.append("Other Sales : ")
+                .append(String.format("%.2f", getAmount(response, "totalOtherSales")))
+                .append("\n");
+
+        builder.append("Total Discount : ")
+                .append(String.format("%.2f", getAmount(response, "total_discount")))
+                .append("\n");
+
+
+        builder.append("Total Amount : ")
+                .append(String.format("%.2f", getAmount(response, "total_amount")))
+                .append("\n");
+//        builder.append("Total Amount : ").append(String.format("%.2f", response.optDouble("total_amount", 0))).append("\n");
+//        builder.append("Closing Balance : ").append(String.format("%.2f", response.optDouble("register_closing_balance", 0))).append("\n");
+        builder.append("Closing Balance : ")
+                .append(String.format("%.2f", getAmount(response, "register_closing_balance")))
+                .append("\n");
+//        builder.append(ESC_FONT_BOLD_OFF);
 
         // Cancelled Orders
         builder.append("---------------------------------------------\n");
@@ -76,7 +144,11 @@ public class ReportHandler {
                     int orderNo = order.optInt("order_no", 0);
                     String typeStr = order.optString("order_type", "");
                     String amount = order.optString("amount", "0.00");
-                    String reason = order.optString("other_info", "");
+//                    String reason = order.optString("other_info", "");
+
+                    String reason = order.isNull("other_info")
+                            ? ""
+                            : order.optString("other_info", "");
 
                     builder.append(String.format("%-10s %-13s %-10s %s\n",
                             orderNo, typeStr, amount, reason));
@@ -103,6 +175,17 @@ public class ReportHandler {
         return builder.toString();
     }
 
+    private static double getAmount(JSONObject obj, String key) {
+        String value = obj.optString(key, "0").replace(",", "").trim();
+        try {
+            return Double.parseDouble(value);
+        } catch (Exception e) {
+            Log.e(TAG, "Invalid amount for key: " + key + " value: " + value);
+            return 0.0;
+        }
+    }
+
+
     public static String buildOnlineReport(JSONObject response, String type) {
         StringBuilder builder = new StringBuilder();
 
@@ -128,12 +211,27 @@ public class ReportHandler {
         }else {
             // Main content (bold + large, left aligned)
             builder.append(ESC_FONT_BOLD_ON);
-            builder.append("Total Cash Orders : ").append(response.optInt("total_cash_orders", 0)).append("\n\n");
-            builder.append("Total Card Orders : ").append(response.optInt("total_card_orders", 0)).append("\n\n");
-            builder.append("Total Orders : ").append(response.optInt("total_orders", 0)).append("\n\n");
-            builder.append("Total Cash Amount : ").append(response.optString("total_cash_amount", "0.00")).append("\n\n");
-            builder.append("Total Card Amount : ").append(response.optString("total_card_amount", "0.00")).append("\n\n");
-            builder.append("Total Amount : ").append(response.optString("total_amount", "0.00")).append("\n\n");
+
+
+            builder.append("Total Cash Orders : ").append(String.format("%.2f", getAmount(response, "total_cash_orders"))).append("\n\n");
+            builder.append("Total Card Orders : ").append(String.format("%.2f", getAmount(response,"total_card_orders"))).append("\n\n");
+            builder.append("Total Orders : ").append(String.format("%.2f", getAmount(response,"total_orders"))).append("\n\n");
+
+            builder.append("Total Cash Amount : ")
+                    .append(String.format("%.2f", getAmount(response, "total_cash_amount")))
+                    .append("\n\n");
+
+            builder.append("Total Card Amount : ")
+                    .append(String.format("%.2f", getAmount(response, "total_card_amount")))
+                    .append("\n\n");
+
+            builder.append("Total Amount : ")
+                    .append(String.format("%.2f", getAmount(response, "total_amount")))
+                    .append("\n\n");
+
+//            builder.append("Total Cash Amount : ").append(response.optString("total_cash_amount", "0.00")).append("\n\n");
+//            builder.append("Total Card Amount : ").append(response.optString("total_card_amount", "0.00")).append("\n\n");
+//            builder.append("Total Amount : ").append(response.optString("total_amount", "0.00")).append("\n\n");
             builder.append(ESC_FONT_BOLD_OFF);
             builder.append("----------------------------------------------\n");
             builder.append("           Thank you for visiting us!\n");

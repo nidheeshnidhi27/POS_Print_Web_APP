@@ -49,10 +49,10 @@ public class BookingPrintHandler {
             //                                    todo _hide 02/12
 //            new PrintConnection(context, printerIP, printerPort, formattedText).execute();
 
-            PrintConnection pc = new PrintConnection(context);
-            pc.printWithStatusCheck(printerIP, printerPort, formattedText, (success, msg) -> {
-                Log.d("DailyReportPrint", success + " → " + msg);
-            });
+        PrintConnection pc = new PrintConnection(context);
+        pc.printFast(printerIP, printerPort, formattedText, (success, msg) -> {
+            Log.d("DailyReportPrint", success + " → " + msg);
+        });
 
         } catch (Exception e) {
             Log.e("BookingPrint", "Error printing booking", e);

@@ -104,7 +104,7 @@ public class KOTHandler {
                             Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
                         });
                     }
-                    try { Thread.sleep(15); } catch (InterruptedException ignored) {}
+                    try { Thread.sleep(0); } catch (InterruptedException ignored) {}
                 }
             }
 
