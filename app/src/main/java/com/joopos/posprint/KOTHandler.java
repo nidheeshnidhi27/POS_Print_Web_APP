@@ -99,10 +99,16 @@ public class KOTHandler {
                             Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " USB Success=" + success + " | " + msg);
                         });
                     } else {
-                        PrintConnection printer = new PrintConnection(context);
+
+// TODO NIDHI REMOVE PRINT STATUS 06/02
+
+                        PrintConnectionWithoutStatus printConnection = new PrintConnectionWithoutStatus(ip, port, textToPrint);
+                        printConnection.execute();
+
+                        /*PrintConnection printer = new PrintConnection(context);
                         printer.printFast(ip, port, textToPrint, (success, msg) -> {
                             Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
-                        });
+                        });*/
                     }
                     try { Thread.sleep(0); } catch (InterruptedException ignored) {}
                 }

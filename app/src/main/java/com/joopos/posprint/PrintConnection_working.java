@@ -14,28 +14,25 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class PrintConnection {
+public class PrintConnection_working {
+
+
+
     public interface Callback {
         void onComplete(boolean success, String message);
     }
 
     private static final String TAG = "PrintConnection";
-    private static final Map<String, ExecutorService> PR_EXEC = new ConcurrentHashMap<>();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private Context context;
 
-    public PrintConnection(Context context) {
+    public PrintConnection_working(Context context) {
         this.context = context.getApplicationContext();
-    }
-
-    private static ExecutorService execFor(String key) {
-        return PR_EXEC.computeIfAbsent(key, k -> Executors.newSingleThreadExecutor());
     }
 
     /**
@@ -46,21 +43,16 @@ public class PrintConnection {
      * @param textToPrint ESC/POS formatted text
      * @param callback  called on main thread
      */
-
-//    TODO NIDHI-31/01/26 printWithStatusCheck changed to printFast
-    //    public void printFast(String ip, int port, String textToPrint, Callback callback) {
     public void printWithStatusCheck(String ip, int port, String textToPrint, Callback callback) {
-
-        String key = ip + ":" + port;
-        execFor(key).execute(() -> {
+        executor.execute(() -> {
             boolean success = false;
             String message = "Unknown error";
 
             Socket socket = null;
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 2500);
-                socket.setSoTimeout(250);
+                socket.connect(new InetSocketAddress(ip, port), 4000);
+                socket.setSoTimeout(200);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -105,7 +97,7 @@ public class PrintConnection {
                         return;
                     }
                     if (busy) {
-                        try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
                         drainWithTimeout(input);
                         output.write(new byte[]{0x10, 0x04, 0x02});
                         output.flush();
@@ -132,14 +124,13 @@ public class PrintConnection {
                 // Use CP858 as you used previously for special characters
                 Charset cs = Charset.forName("CP858");
                 output.write(textToPrint.getBytes(cs));
-                output.write(new byte[]{0x0A}); // ensure final line commits
                 output.flush();
 
+                // small pause then send cut (separate write reduces mixing)
                 try { Thread.sleep(60); } catch (InterruptedException ignored) {}
-                output.write(new byte[]{0x1B, 0x64, 0x02}); // feed 2 lines
-                output.flush();
-                try { Thread.sleep(60); } catch (InterruptedException ignored) {}
-                output.write(new byte[]{0x1D, 0x56, 0x00}); // full cut
+
+                String cut = "\u001DVA0";
+                output.write(cut.getBytes(cs));
                 output.flush();
 
                 message = "Printed successfully";
@@ -147,97 +138,18 @@ public class PrintConnection {
 
             } catch (SocketTimeoutException ste) {
                 message = "Printer read timed out (possible slow response)";
+                showNotification(message);
                 Log.e(TAG, "SocketTimeoutException", ste);
                 success = false;
             } catch (Exception e) {
                 message = "Printing failed: " + e.getMessage();
+                showNotification(message);
                 Log.e(TAG, "Printing exception", e);
                 success = false;
             } finally {
                 safeClose(socket);
             }
 
-            postResult(callback, success, message);
-        });
-    }
-
-     public void printFast(String ip, int port, String textToPrint, Callback callback) {
-//    public void printWithStatusCheck(String ip, int port, String textToPrint, Callback callback) {
-        String key = ip + ":" + port;
-        execFor(key).execute(() -> {
-            boolean success = false;
-            String message = "Unknown error";
-            int[] timeouts = new int[]{300, 600, 900};
-            for (int i = 0; i < timeouts.length && !success; i++) {
-                Socket socket = null;
-                try {
-                    socket = new Socket();
-                    socket.connect(new InetSocketAddress(ip, port), timeouts[i]);
-                    socket.setSoTimeout(60);
-                    socket.setTcpNoDelay(true);
-                    InputStream input = socket.getInputStream();
-                    OutputStream output = socket.getOutputStream();
-                    drainWithTimeout(input);
-                    Charset cs = Charset.forName("CP858");
-                    output.write(textToPrint.getBytes(cs));
-                    output.write(new byte[]{0x0A});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x1B, 0x64, 0x02});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x1D, 0x56, 0x00});
-                    output.flush();
-                    message = "Printed fast " + ip + ":" + port;
-                    success = true;
-                } catch (Exception e) {
-                    message = "Fast print failed " + ip + ":" + port + " → " + e.getMessage();
-                    Log.e(TAG, message, e);
-                    if (i < timeouts.length - 1) {
-                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                    }
-                } finally {
-                    safeClose(socket);
-                }
-            }
-            if (!success) {
-                try { Thread.sleep(900); } catch (InterruptedException ignored) {}
-                Socket socket = null;
-                try {
-                    socket = new Socket();
-                    socket.connect(new InetSocketAddress(ip, port), 1200);
-                    socket.setSoTimeout(80);
-                    socket.setTcpNoDelay(true);
-                    InputStream input = socket.getInputStream();
-                    OutputStream output = socket.getOutputStream();
-                    drainWithTimeout(input);
-                    output.write(new byte[]{0x1B, 0x40});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    Charset cs = Charset.forName("CP858");
-                    output.write(textToPrint.getBytes(cs));
-                    output.write(new byte[]{0x0A});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x0A});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x1B, 0x64, 0x02});
-                    output.flush();
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x1D, 0x56, 0x00});
-                    output.flush();
-                    message = "Printed fast " + ip + ":" + port;
-                    success = true;
-                } catch (Exception e) {
-                    Log.e(TAG, "Final retry failed " + ip + ":" + port + " → " + e.getMessage(), e);
-                } finally {
-                    safeClose(socket);
-                }
-                if (!success) {
-                    showNotification(message);
-                }
-            }
             postResult(callback, success, message);
         });
     }
@@ -315,16 +227,15 @@ public class PrintConnection {
             String textToPrint,
             Callback callback
     ) {
-        String key = ip + ":" + port;
-        execFor(key).execute(() -> {
+        executor.execute(() -> {
             boolean success = false;
             String message = "Unknown error";
             Socket socket = null;
 
             try {
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 1500);
-                socket.setSoTimeout(150);
+                socket.connect(new InetSocketAddress(ip, port), 4000);
+                socket.setSoTimeout(200);
 
                 InputStream input = socket.getInputStream();
                 OutputStream output = socket.getOutputStream();
@@ -345,18 +256,14 @@ public class PrintConnection {
                 // 🔥 STEP 1: OPEN CASH DRAWER
                 output.write(drawerPulse);
                 output.flush();
-                Thread.sleep(50);
+                Thread.sleep(80);
 
                 // 🔥 STEP 2: PRINT TEXT
                 output.write(textToPrint.getBytes(Charset.forName("CP858")));
-                output.write(new byte[]{0x0A}); // ensure final line commits
                 output.flush();
 
                 Thread.sleep(60);
-                output.write(new byte[]{0x1B, 0x64, 0x02}); // feed
-                output.flush();
-                Thread.sleep(60);
-                output.write(new byte[]{0x1D, 0x56, 0x00}); // cut
+                output.write("\u001DVA0".getBytes(Charset.forName("CP858"))); // cut
                 output.flush();
 
                 success = true;
@@ -373,4 +280,5 @@ public class PrintConnection {
             postResult(callback, success, message);
         });
     }
+
 }

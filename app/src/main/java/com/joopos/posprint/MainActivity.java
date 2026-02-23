@@ -359,6 +359,7 @@ public class MainActivity extends AppCompatActivity {
         if (url == null) return false;
         String u = url.toLowerCase();
         return u.contains("invoice_print")
+                || u.contains("invoice_split_item")
                 || u.contains("reprint_kot")
                 || u.contains("online_kot")
                 || u.contains("online_invoice")

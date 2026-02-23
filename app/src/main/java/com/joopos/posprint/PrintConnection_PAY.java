@@ -116,35 +116,76 @@ public class PrintConnection_PAY {
         execFor(key).execute(() -> {
             boolean success = false;
             String message = "Unknown error";
-            Socket socket = null;
-            try {
-                socket = new Socket();
-                socket.connect(new InetSocketAddress(ip, port), 400);
-                socket.setSoTimeout(60);
-                InputStream input = socket.getInputStream();
-                OutputStream output = socket.getOutputStream();
-                drainWithTimeout(input);
-                output.write(new byte[]{0x1B, 0x40}); // init
-                output.flush();
-                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                output.write(printableData);
-                output.flush();
-                try { Thread.sleep(60); } catch (InterruptedException ignored) {}
-                if (!endsWithCut(printableData)) {
-                    output.write(new byte[]{0x1B, 0x64, 0x02}); // feed 2 lines
+            int[] timeouts = new int[]{350, 650, 950};
+            for (int i = 0; i < timeouts.length && !success; i++) {
+                Socket socket = null;
+                try {
+                    socket = new Socket();
+                    socket.connect(new InetSocketAddress(ip, port), timeouts[i]);
+                    socket.setSoTimeout(60);
+                    socket.setTcpNoDelay(true);
+                    InputStream input = socket.getInputStream();
+                    OutputStream output = socket.getOutputStream();
+                    drainWithTimeout(input);
+                    output.write(new byte[]{0x1B, 0x40});
+                    output.flush();
+                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                    output.write(printableData);
                     output.flush();
                     try { Thread.sleep(60); } catch (InterruptedException ignored) {}
-                    output.write(new byte[]{0x1D, 0x56, 0x00}); // full cut
-                    output.flush();
+                    if (!endsWithCut(printableData)) {
+                        output.write(new byte[]{0x1B, 0x64, 0x02});
+                        output.flush();
+                        try { Thread.sleep(60); } catch (InterruptedException ignored) {}
+                        output.write(new byte[]{0x1D, 0x56, 0x00});
+                        output.flush();
+                    }
+                    message = "Printed fast (PAY)";
+                    success = true;
+                } catch (Exception e) {
+                    message = "Fast print failed (PAY): " + e.getMessage();
+                    Log.e(TAG, message, e);
+                    if (i < timeouts.length - 1) {
+                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                    }
+                } finally {
+                    safeClose(socket);
                 }
-                message = "Printed fast (PAY)";
-                success = true;
-            } catch (Exception e) {
-                message = "Fast print failed (PAY): " + e.getMessage();
-                showNotification(message);
-                Log.e(TAG, message, e);
-            } finally {
-                safeClose(socket);
+            }
+            if (!success) {
+                try { Thread.sleep(900); } catch (InterruptedException ignored) {}
+                Socket socket = null;
+                try {
+                    socket = new Socket();
+                    socket.connect(new InetSocketAddress(ip, port), 1300);
+                    socket.setSoTimeout(80);
+                    socket.setTcpNoDelay(true);
+                    InputStream input = socket.getInputStream();
+                    OutputStream output = socket.getOutputStream();
+                    drainWithTimeout(input);
+                    output.write(new byte[]{0x1B, 0x40});
+                    output.flush();
+                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+                    output.write(printableData);
+                    output.flush();
+                    try { Thread.sleep(60); } catch (InterruptedException ignored) {}
+                    if (!endsWithCut(printableData)) {
+                        output.write(new byte[]{0x1B, 0x64, 0x02});
+                        output.flush();
+                        try { Thread.sleep(60); } catch (InterruptedException ignored) {}
+                        output.write(new byte[]{0x1D, 0x56, 0x00});
+                        output.flush();
+                    }
+                    message = "Printed fast (PAY)";
+                    success = true;
+                } catch (Exception e) {
+                    Log.e(TAG, "Final retry failed (PAY): " + e.getMessage(), e);
+                } finally {
+                    safeClose(socket);
+                }
+                if (!success) {
+                    showNotification(message);
+                }
             }
             post(callback, success, message);
         });

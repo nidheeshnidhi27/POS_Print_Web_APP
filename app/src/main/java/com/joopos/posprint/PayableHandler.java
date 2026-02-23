@@ -532,7 +532,7 @@ public class PayableHandler {
             output.write("\n".getBytes());
             output.write(ESC_FONT_SIZE_RESET);
             output.write("-------------------------------------------\n".getBytes());
-            String siteUrl = restSettings.optString("online_url", "");
+            String siteUrl = restSettings.optString("qr_url", "");
             String footerText = restSettings.optString("footer_text", "");
 
             if (siteUrl != null && !siteUrl.equalsIgnoreCase("null") && !siteUrl.trim().isEmpty()) {
@@ -560,7 +560,11 @@ public class PayableHandler {
             output.write(new byte[]{0x1B, 0x64, 0x03}); // Feed 3 lines
 
             int cashDrawerFeature = features != null ? features.optInt("cash_drawer", 0) : 0;
-            if (cashDrawerFeature == 1) {
+            String pm = data.optString("payment_method", "");
+            boolean paid = "1".equals(data.optString("payment_status", "0"));
+            boolean isCashNamed = pm != null && pm.toLowerCase(Locale.US).contains("cash");
+            boolean hasCashAmount = parseSafeDouble(data.optString("cash_amount", "0")) > 0.0;
+            if (cashDrawerFeature == 1 && paid && (isCashNamed || hasCashAmount)) {
                 int pin = 0;
                 if (restSettings != null && !restSettings.isNull("cash_drawer_pin")) {
                     pin = restSettings.optInt("cash_drawer_pin", 0);
@@ -939,6 +943,19 @@ public class PayableHandler {
             output.write(("Printed : " + printedTime + "\n\n").getBytes());
 
             output.write(new byte[]{0x1B, 0x64, 0x03}); // Feed 3 lines
+        int cashDrawerFeature = features != null ? features.optInt("cash_drawer", 1) : 1;
+        String pm = data.optString("payment_method", "");
+        boolean paid = "1".equals(data.optString("payment_status", "0"));
+        boolean isCashNamed = pm != null && pm.toLowerCase(Locale.US).contains("cash");
+        boolean hasCashAmount = parseSafeDouble(data.optString("cash_amount", "0")) > 0.0;
+        if (cashDrawerFeature == 1 && paid && (isCashNamed || hasCashAmount)) {
+            int pin = 0;
+            if (restSettings != null && !restSettings.isNull("cash_drawer_pin")) {
+                pin = restSettings.optInt("cash_drawer_pin", 0);
+            }
+            byte[] drawerPulse = new byte[]{0x1B, 0x70, (byte) (pin == 1 ? 0x01 : 0x00), 0x3C, (byte) 0xFF};
+            output.write(drawerPulse);
+        }
             output.write(new byte[]{0x1D, 0x56, 0x00}); // Full cut
         } catch (Exception e) {
             Log.e(TAG, "Error formatting print text", e);
@@ -1223,7 +1240,11 @@ public class PayableHandler {
 
             output.write(new byte[]{0x1B, 0x64, 0x03});
             int cashDrawerFeature = features != null ? features.optInt("cash_drawer", 0) : 0;
-            if (cashDrawerFeature == 1) {
+            String pm = data.optString("payment_method", "");
+            boolean paid = "1".equals(data.optString("payment_status", "0"));
+            boolean isCashNamed = pm != null && pm.toLowerCase(Locale.US).contains("cash");
+            boolean hasCashAmount = parseSafeDouble(data.optString("cash_amount", "0")) > 0.0;
+            if (cashDrawerFeature == 1 && paid && (isCashNamed || hasCashAmount)) {
                 int pin = 0;
                 if (restSettings != null && !restSettings.isNull("cash_drawer_pin")) {
                     pin = restSettings.optInt("cash_drawer_pin", 0);

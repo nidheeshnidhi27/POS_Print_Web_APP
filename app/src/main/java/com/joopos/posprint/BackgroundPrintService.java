@@ -256,10 +256,17 @@ public class BackgroundPrintService extends IntentService {
                                                     UsbPrintConnection usb = new UsbPrintConnection(this);
                                                     usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                                 } else {
-                                                    PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+//TODO NIDHI WITHOUT STATUS 06/02
+                                                    PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(finalPrinterIP, finalPrinterPort, formattedBytes);
+                                                    printConnection.execute();
+
+                                                    /*PrintConnection_PAY payConn = new PrintConnection_PAY(this);
                                                     payConn.printFastBytes(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
                                                         Log.d("PAY", "Callback: " + msg);
-                                                    });
+                                                    });*/
+
+
+
                                                 }
                                             }
 
@@ -437,10 +444,14 @@ public class BackgroundPrintService extends IntentService {
                                         UsbPrintConnection usb = new UsbPrintConnection(this);
                                         usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                     } else {
-                                        PrintConnection_PAY payConn = new PrintConnection_PAY(this);
+// TODO NIDHI WITHOUT PRINT STATUS 06/02
+                                        PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(printerIP, printerPort, formattedBytes);
+                                        printConnection.execute();
+
+                                        /*PrintConnection_PAY payConn = new PrintConnection_PAY(this);
                                         payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                             Log.d("PAY", "Callback: " + msg);
-                                        });
+                                        });*/
                                     }
 
                                 } else {
