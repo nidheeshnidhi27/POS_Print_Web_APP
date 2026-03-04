@@ -18,15 +18,20 @@ public class KOTHandlerOnline {
     Context context;
     JSONObject response, details;
     private static final String ESC_FONT_SIZE_LARGE = "\u001B" + "!" + (char) 51;  // Double width + height + bold
+    String baseUrl;
+    String jobId;
     private static final String ESC_FONT_SIZE_MEDIUM = "\u001B" + "!" + (char) 46;
     private static final String ESC_FONT_SIZE_SMALL = "\u001B" + "!" + (char) 23;
     private static final String ESC_FONT_SIZE_NOTE = "\u001B" + "!" + (char) 32;
     private static final String ESC_FONT_SIZE_RESET = "\u001B" + "!" + (char) 0;
-    public KOTHandlerOnline(Context context, JSONObject response, JSONObject details) {
-
+    String printType;
+    public KOTHandlerOnline(Context context, JSONObject response, JSONObject details, String baseUrl, String jobId, String printType) {
         this.context = context;
         this.response = response;
         this.details = details;
+        this.baseUrl = baseUrl;
+        this.jobId = jobId == null ? "" : jobId;
+        this.printType = printType;
     }
     /*public void handleKOT() {
         try {
@@ -81,6 +86,9 @@ public class KOTHandlerOnline {
 
     public void handleKOT() {
         try {
+            final String trackingId = (jobId.isEmpty())
+                    ? new PrintQueueRepository(context).track(baseUrl, "", printType)
+                    : jobId;
 
             for (Iterator<String> keyIterator = details.keys(); keyIterator.hasNext(); ) {
 
@@ -144,16 +152,18 @@ public class KOTHandlerOnline {
                         UsbPrintConnection usb = new UsbPrintConnection(context);
                         usb.printText(textToPrint, (success, msg) -> {
                             Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " USB Success=" + success + " | " + msg);
+                            PrintQueueRepository repo = new PrintQueueRepository(context);
+                            if (success) repo.markSuccess(trackingId);
+                            else repo.enqueueWork(trackingId, baseUrl);
                         });
                     } else {
-// TODO NIDHI REMOVE PRINT STATUS 06/02
-                        PrintConnectionWithoutStatus printConnection = new PrintConnectionWithoutStatus(ip, port, textToPrint);
-                        printConnection.execute();
-
-                        /*PrintConnection printer = new PrintConnection(context);
+                        PrintConnection printer = new PrintConnection(context);
                         printer.printFast(ip, port, textToPrint, (success, msg) -> {
                             Log.d("KOT_PRINT_CALLBACK", "PrinterId=" + finalPrinterId + " Copy=" + finalCopyNo + " Success=" + success + " | " + msg);
-                        });*/
+                            PrintQueueRepository repo = new PrintQueueRepository(context);
+                            if (success) repo.markSuccess(trackingId);
+                            else repo.enqueueWork(trackingId, baseUrl);
+                        });
                     }
                     try { Thread.sleep(0); } catch (InterruptedException ignored) {}
                 }

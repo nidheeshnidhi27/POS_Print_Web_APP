@@ -91,6 +91,8 @@ public class BackgroundPrintService extends IntentService {
                 Log.d("PrintService", "Final API URL: " + baseUrl);
 
             RequestQueue queue = RequestQueueSingleton.get(getApplicationContext());
+            final String jobId = params.getOrDefault("job_id", "");
+            final String finalBaseUrl = baseUrl;
             JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, baseUrl, null,
                     response -> {
                         try {
@@ -100,15 +102,15 @@ public class BackgroundPrintService extends IntentService {
                             if ("kot".equalsIgnoreCase(type)) {
 
                                 JSONObject details = response.getJSONObject("details");
-                                new KOTHandler(getApplicationContext(), response, details).handleKOT();
+                                new KOTHandler(getApplicationContext(), response, details, finalBaseUrl, jobId, "kot").handleKOT();
 
                             }else if ("reprint_kot".equalsIgnoreCase(type)) {
 
                                 JSONObject details = response.getJSONObject("details");
-                                new KOTHandler(getApplicationContext(), response, details).handleKOT();
+                                new KOTHandler(getApplicationContext(), response, details, finalBaseUrl, jobId, "reprint_kot").handleKOT();
                             }else if ("online_kot".equalsIgnoreCase(type)) {
                                 JSONObject details = response.getJSONObject("details");
-                                new KOTHandlerOnline(getApplicationContext(), response, details).handleKOT();
+                                new KOTHandlerOnline(getApplicationContext(), response, details, finalBaseUrl, jobId, "online_kot").handleKOT();
                             }
                             else if ("online_booking".equalsIgnoreCase(type)) {
                                 new BookingPrintHandler(getApplicationContext(), response).handleBookingPrint();
@@ -141,6 +143,16 @@ public class BackgroundPrintService extends IntentService {
                                     }
                                 }
 
+                                // Allow override printer IP/port via deep link params
+                                String overrideIp = params.getOrDefault("force_ip", "");
+                                String overridePort = params.getOrDefault("force_port", "");
+                                if (!overrideIp.isEmpty()) {
+                                    printerIP = overrideIp;
+                                }
+                                if (!overridePort.isEmpty()) {
+                                    try { printerPort = Integer.parseInt(overridePort); } catch (Exception ignored) {}
+                                }
+
                                 if (!printerIP.isEmpty() || "usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType)) {
                                     JSONObject restSettings = response.has("rest_settings") ? response.getJSONObject("rest_settings") : new JSONObject();
                                     JSONObject settings = response.has("settings") ? response.getJSONObject("settings") : new JSONObject();
@@ -162,15 +174,26 @@ public class BackgroundPrintService extends IntentService {
                                             .optInt("invoice_print_copies", 1); // default 1
 
                                     byte[] formattedBytes = payableHandler.formatOnlinePayableBytes();
+                                    final String trackingId = jobId.isEmpty()
+                                            ? new PrintQueueRepository(this).track(finalBaseUrl, "", "online_invoice")
+                                            : jobId;
 //   TODO _NEW invoice print count based on api
                                     for (int i = 0; i < invoicePrintCopies; i++) {
                                         if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
                                             UsbPrintConnection usb = new UsbPrintConnection(this);
-                                            usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                            usb.printBytes(formattedBytes, (success, msg) -> {
+                                                Log.d("PAY_USB", "Callback: " + msg);
+                                                PrintQueueRepository repo = new PrintQueueRepository(this);
+                                                if (success) repo.markSuccess(trackingId);
+                                                else repo.enqueueWork(trackingId, finalBaseUrl);
+                                            });
                                         } else {
                                             PrintConnection_PAY payConn = new PrintConnection_PAY(this);
                                             payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                                 Log.d("PAY_FAST", "Callback: " + msg);
+                                                PrintQueueRepository repo = new PrintQueueRepository(this);
+                                                if (success) repo.markSuccess(trackingId);
+                                                else repo.enqueueWork(trackingId, finalBaseUrl);
                                             });
                                         }
 
@@ -178,6 +201,11 @@ public class BackgroundPrintService extends IntentService {
 
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
+                                    if (!jobId.isEmpty()) {
+                                        new PrintQueueRepository(this).enqueueWork(jobId, finalBaseUrl);
+                                    } else {
+                                        new PrintQueueRepository(this).enqueue(finalBaseUrl, "", "online_invoice");
+                                    }
                                 }
                             }
 
@@ -257,7 +285,15 @@ public class BackgroundPrintService extends IntentService {
                                                     usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
                                                 } else {
 //TODO NIDHI WITHOUT STATUS 06/02
-                                                    PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(finalPrinterIP, finalPrinterPort, formattedBytes);
+                                                    PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(finalPrinterIP, finalPrinterPort, formattedBytes, (success, msg) -> {
+                                                        if (!jobId.isEmpty()) {
+                                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                                            if (success) repo.markSuccess(jobId);
+                                                            else repo.enqueueWork(jobId, finalBaseUrl);
+                                                        } else if (!success) {
+                                                            new PrintQueueRepository(this).enqueue(finalBaseUrl, "", type);
+                                                        }
+                                                    });
                                                     printConnection.execute();
 
                                                     /*PrintConnection_PAY payConn = new PrintConnection_PAY(this);
@@ -316,15 +352,26 @@ public class BackgroundPrintService extends IntentService {
                                     PayableHandler payableHandler = new PayableHandler(this, payData, outlets, details, printerIP, printerPort, type, restSettings, params);
 
                                     byte[] formattedBytes = payableHandler.formatPayableSplitBytes(); // Now returns byte[]
+                                    final String trackingId = jobId.isEmpty()
+                                            ? new PrintQueueRepository(this).track(finalBaseUrl, "", type)
+                                            : jobId;
                                     /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                     printConnection.execute();*/
                                     if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
                                         UsbPrintConnection usb = new UsbPrintConnection(this);
-                                        usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                        usb.printBytes(formattedBytes, (success, msg) -> {
+                                            Log.d("PAY_USB", "Callback: " + msg);
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
+                                        });
                                     } else {
                                         PrintConnection_PAY payConn = new PrintConnection_PAY(this);
-                                        payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                             Log.d("PAY", "Callback: " + msg);
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
                                         });
                                     }
 
@@ -382,16 +429,27 @@ public class BackgroundPrintService extends IntentService {
                                         );
 
                                         byte[] formattedBytes = payableHandler.formatPayableSplitBytes();
+                                        final String trackingId = jobId.isEmpty()
+                                                ? new PrintQueueRepository(this).track(finalBaseUrl, "", "invoice_split_equal")
+                                                : jobId;
                                         /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                         printConnection.execute();*/
 
                                         if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
                                             UsbPrintConnection usb = new UsbPrintConnection(this);
-                                            usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                            usb.printBytes(formattedBytes, (success, msg) -> {
+                                                Log.d("PAY_USB", "Callback: " + msg);
+                                                PrintQueueRepository repo = new PrintQueueRepository(this);
+                                                if (success) repo.markSuccess(trackingId);
+                                                else repo.enqueueWork(trackingId, finalBaseUrl);
+                                            });
                                         } else {
                                             PrintConnection_PAY payConn = new PrintConnection_PAY(this);
                                             payConn.printFastBytes(printerIP, printerPort, formattedBytes, (success, msg) -> {
                                                 Log.d("PAY", "Callback: " + msg);
+                                                PrintQueueRepository repo = new PrintQueueRepository(this);
+                                                if (success) repo.markSuccess(trackingId);
+                                                else repo.enqueueWork(trackingId, finalBaseUrl);
                                             });
                                         }
 
@@ -399,6 +457,11 @@ public class BackgroundPrintService extends IntentService {
                                     }
                                 } else {
                                     Log.e("PrintError", "No valid printer IP found in printersetup.");
+                                        if (!jobId.isEmpty()) {
+                                        new PrintQueueRepository(this).enqueueWork(jobId, finalBaseUrl);
+                                    } else {
+                                        new PrintQueueRepository(this).enqueue(finalBaseUrl, "", "invoice_split_item");
+                                    }
                                 }
                             }
 
@@ -438,14 +501,26 @@ public class BackgroundPrintService extends IntentService {
                                     PayableHandler payableHandler = new PayableHandler(this, payData, outlets, details, printerIP, printerPort, type, restSettings, params);
 //                                    PayableHandler payableHandler = new PayableHandler(this, payData, outlets, details, printerIP, printerPort, type);
                                     byte[] formattedBytes = payableHandler.formatPayableBytes(); // Now returns byte[]
+                                    final String trackingId = jobId.isEmpty()
+                                            ? new PrintQueueRepository(this).track(finalBaseUrl, "", type)
+                                            : jobId;
                                     /*PrintConnection_PAY printConnection = new PrintConnection_PAY(printerIP, printerPort, formattedBytes);
                                     printConnection.execute();*/
                                     if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
                                         UsbPrintConnection usb = new UsbPrintConnection(this);
-                                        usb.printBytes(formattedBytes, (success, msg) -> Log.d("PAY_USB", "Callback: " + msg));
+                                        usb.printBytes(formattedBytes, (success, msg) -> {
+                                            Log.d("PAY_USB", "Callback: " + msg);
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
+                                        });
                                     } else {
 // TODO NIDHI WITHOUT PRINT STATUS 06/02
-                                        PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(printerIP, printerPort, formattedBytes);
+                                        PrintConnection_PAY_new_WithoutStatus printConnection = new PrintConnection_PAY_new_WithoutStatus(printerIP, printerPort, formattedBytes, (success, msg) -> {
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
+                                        });
                                         printConnection.execute();
 
                                         /*PrintConnection_PAY payConn = new PrintConnection_PAY(this);
@@ -494,17 +569,28 @@ public class BackgroundPrintService extends IntentService {
                                     );
 
                                     String formattedText = pettyCashHandler.formatPettyCashPrint(response); // ⬅ Make sure to pass full response or adjust inside
+                                    final String trackingId = jobId.isEmpty()
+                                            ? new PrintQueueRepository(this).track(finalBaseUrl, "", type)
+                                            : jobId;
 //                                    todo _hide 02/12
                                     /*PrintConnection printConnection = new PrintConnection(this,printerIP, printerPort, formattedText);
                                     printConnection.execute();*/
 
                                     if ("usb".equalsIgnoreCase(printerType) || "windows".equalsIgnoreCase(printerType) || "window".equalsIgnoreCase(printerType) || printerIP.trim().isEmpty()) {
                                         UsbPrintConnection usb = new UsbPrintConnection(this);
-                                        usb.printText(formattedText, (success, msg) -> Log.d("PrintService_USB", type + " → " + success + " / " + msg));
+                                        usb.printText(formattedText, (success, msg) -> {
+                                            Log.d("PrintService_USB", type + " → " + success + " / " + msg);
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
+                                        });
                                     } else {
                                         PrintConnection pc = new PrintConnection(this);
                                         pc.printFast(printerIP, printerPort, formattedText, (success, msg) -> {
                                             Log.d("PrintService", type + " → " + success + " / " + msg);
+                                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                                            if (success) repo.markSuccess(trackingId);
+                                            else repo.enqueueWork(trackingId, finalBaseUrl);
                                         });
                                     }
 
@@ -682,7 +768,17 @@ public class BackgroundPrintService extends IntentService {
                             Log.e("PrintService", "JSON error", e);
                         }
                     },
-                    error -> Log.e("PrintService", "Volley error", error)
+                    error -> {
+                        Log.e("PrintService", "Volley error", error);
+                        if (!jobId.isEmpty()) {
+                            PrintQueueRepository repo = new PrintQueueRepository(this);
+                            Log.d("PrintService", "Queue add due to network error for jobId=" + jobId);
+                            repo.enqueueWork(jobId, finalBaseUrl);
+                        } else {
+                            Log.d("PrintService", "Queue add due to network error (no jobId) url=" + finalBaseUrl);
+                            new PrintQueueRepository(this).enqueue(finalBaseUrl, "", "unknown");
+                        }
+                    }
             ) {
                 @Override
                 public Map<String, String> getHeaders() {

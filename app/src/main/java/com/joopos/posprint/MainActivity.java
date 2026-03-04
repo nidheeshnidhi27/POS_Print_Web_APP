@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import androidx.appcompat.app.AlertDialog;
 import android.webkit.CookieManager;
+import androidx.room.InvalidationTracker;
 
 import com.joopos.posprint.R;
 import com.google.android.material.snackbar.Snackbar;
@@ -40,6 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private android.widget.EditText urlInput;
     private android.widget.Button goButton;
     private View urlBar;
+    private View queueButton;
+    private InvalidationTracker.Observer queueObserver;
+    private android.content.BroadcastReceiver queueChangedReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +75,34 @@ public class MainActivity extends AppCompatActivity {
         urlInput = findViewById(R.id.urlInput);
         goButton = findViewById(R.id.goButton);
         urlBar = findViewById(R.id.urlBar);
+        queueButton = findViewById(R.id.queueButton);
+        queueButton.setOnClickListener(v -> {
+            Intent i = new Intent(MainActivity.this, PrintQueueActivity.class);
+            startActivity(i);
+        });
+        refreshQueueButton();
+        try {
+            PrintQueueDatabase db = PrintQueueDatabase.get(getApplicationContext());
+            queueObserver = new InvalidationTracker.Observer(new String[]{"print_jobs"}) {
+                @Override
+                public void onInvalidated(java.util.Set<String> tables) {
+                    runOnUiThread(MainActivity.this::refreshQueueButton);
+                }
+            };
+            db.getInvalidationTracker().addObserver(queueObserver);
+        } catch (Exception ignored) {}
+        try {
+            queueChangedReceiver = new android.content.BroadcastReceiver() {
+                @Override
+                public void onReceive(android.content.Context context, android.content.Intent intent) {
+                    if ("com.joopos.posprint.QUEUE_CHANGED".equals(intent.getAction())) {
+                        Log.d("MainActivity", "Received QUEUE_CHANGED");
+                        refreshQueueButton();
+                    }
+                }
+            };
+            registerReceiver(queueChangedReceiver, new android.content.IntentFilter("com.joopos.posprint.QUEUE_CHANGED"));
+        } catch (Exception ignored) {}
         WebView.setWebContentsDebuggingEnabled(true);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -306,6 +338,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void refreshQueueButton() {
+        new Thread(() -> {
+            boolean has = false;
+            int size = 0;
+            try {
+                java.util.List<PrintJobEntity> list = PrintQueueDatabase.get(getApplicationContext()).dao().listPending();
+                has = !list.isEmpty();
+                size = list.size();
+            } catch (Exception ignored) {}
+            boolean finalHas = has;
+            int finalSize = size;
+            runOnUiThread(() -> {
+                Log.d("MainActivity", "Queue size=" + finalSize + " visible=" + finalHas);
+                queueButton.setVisibility(finalHas ? View.VISIBLE : View.GONE);
+            });
+        }).start();
+    }
+
     private boolean handleDeepLinkUri(Uri uri) {
         if (uri == null) return false;
         Log.d(TAG, "Deep link: " + uri);
@@ -378,5 +428,26 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleDeepLink(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshQueueButton();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            if (queueObserver != null) {
+                PrintQueueDatabase.get(getApplicationContext()).getInvalidationTracker().removeObserver(queueObserver);
+                queueObserver = null;
+            }
+            if (queueChangedReceiver != null) {
+                unregisterReceiver(queueChangedReceiver);
+                queueChangedReceiver = null;
+            }
+        } catch (Exception ignored) {}
     }
 }

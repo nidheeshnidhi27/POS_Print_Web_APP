@@ -533,6 +533,12 @@ public class PayableHandler {
             output.write(ESC_FONT_SIZE_RESET);
             output.write("-------------------------------------------\n".getBytes());
             String siteUrl = restSettings.optString("qr_url", "");
+            if (siteUrl == null || siteUrl.equalsIgnoreCase("null") || siteUrl.trim().isEmpty()) {
+                siteUrl = restSettings.optString("online_url", "");
+            }
+            if (siteUrl != null) {
+                siteUrl = siteUrl.replace("`", "").trim();
+            }
             String footerText = restSettings.optString("footer_text", "");
 
             if (siteUrl != null && !siteUrl.equalsIgnoreCase("null") && !siteUrl.trim().isEmpty()) {
@@ -917,7 +923,13 @@ public class PayableHandler {
             output.write("\n".getBytes());
             output.write(ESC_FONT_SIZE_RESET);
             output.write("-------------------------------------------\n".getBytes());
-            String siteUrl = restSettings.optString("online_url", "");
+            String siteUrl = restSettings.optString("qr_url", "");
+            if (siteUrl == null || siteUrl.equalsIgnoreCase("null") || siteUrl.trim().isEmpty()) {
+                siteUrl = restSettings.optString("online_url", "");
+            }
+            if (siteUrl != null) {
+                siteUrl = siteUrl.replace("`", "").trim();
+            }
             String footerText = restSettings.optString("footer_text", "");
 
             if (siteUrl != null && !siteUrl.equalsIgnoreCase("null") && !siteUrl.trim().isEmpty()) {
@@ -1214,7 +1226,13 @@ public class PayableHandler {
             output.write("\n".getBytes());
             output.write(ESC_FONT_SIZE_RESET);
             output.write("-------------------------------------------\n".getBytes());
-            String siteUrl = settings.optString("online_url", "");
+            String siteUrl = settings.optString("qr_url", "");
+            if (siteUrl == null || siteUrl.equalsIgnoreCase("null") || siteUrl.trim().isEmpty()) {
+                siteUrl = settings.optString("online_url", "");
+            }
+            if (siteUrl != null) {
+                siteUrl = siteUrl.replace("`", "").trim();
+            }
             String footerText = settings.optString("footer_text", "");
             if (!siteUrl.isEmpty()) {
                 output.write(new byte[]{0x1B, 0x61, 0x01});

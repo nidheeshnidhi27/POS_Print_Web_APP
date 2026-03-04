@@ -10,22 +10,34 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class PrintConnection_PAY_new_WithoutStatus extends AsyncTask<Void, Void, Boolean> {
+    public interface Callback {
+        void onComplete(boolean success, String message);
+    }
     private String printerIP;
     private int printerPort;
     private byte[] printableData;
+    private Callback callback;
 
     public PrintConnection_PAY_new_WithoutStatus(String printerIP, int printerPort, byte[] printableData) {
         this.printerIP = printerIP;
         this.printerPort = printerPort;
         this.printableData = printableData;
     }
+    public PrintConnection_PAY_new_WithoutStatus(String printerIP, int printerPort, byte[] printableData, Callback cb) {
+        this.printerIP = printerIP;
+        this.printerPort = printerPort;
+        this.printableData = printableData;
+        this.callback = cb;
+    }
 
     @Override
     protected void onPostExecute(Boolean result) {
         if (result) {
             Log.d("Printer", "✅ Successfully printed (PAY)");
+            if (callback != null) callback.onComplete(true, "Printed");
         } else {
             Log.e("Printer", "❌ Failed to print (PAY)");
+            if (callback != null) callback.onComplete(false, "Failed");
         }
     }
 
@@ -40,15 +52,19 @@ public class PrintConnection_PAY_new_WithoutStatus extends AsyncTask<Void, Void,
             try {
                 Log.d("PrinterDebug", "🟡 Attempt " + attempt + ": Connecting to " + printerIP + ":" + printerPort);
 
-                // Optional: ping before trying to connect
-                boolean reachable = InetAddress.getByName(printerIP).isReachable(2000);
-                if (!reachable) {
-                    Log.e("PrinterDebug", "Printer not reachable (ping failed) on attempt " + attempt);
-                    throw new IOException("Ping failed");
+                // Optional ping (non-blocking): proceed even if ping fails
+                try {
+                    boolean reachable = InetAddress.getByName(printerIP).isReachable(1000);
+                    if (!reachable) {
+                        Log.w("PrinterDebug", "🔌 Ping failed; proceeding to TCP connect");
+                    }
+                } catch (Exception e) {
+                    Log.w("PrinterDebug", "Ping check error; proceeding to TCP connect: " + e.getMessage());
                 }
 
                 socket = new Socket();
-                socket.connect(new InetSocketAddress(printerIP, printerPort), 7000); // 7s timeout
+                socket.connect(new InetSocketAddress(printerIP, printerPort), 2500); // fast timeout
+                socket.setTcpNoDelay(true);
 
                 outputStream = socket.getOutputStream();
                 outputStream.write(printableData);

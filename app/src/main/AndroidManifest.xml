@@ -30,6 +30,11 @@
         <service
             android:name=".BackgroundPrintService"
             android:exported="false" />
+
+        <activity
+            android:name=".PrintQueueActivity"
+            android:exported="true"
+            android:launchMode="singleTop"/>
     </application>
 
 </manifest>
